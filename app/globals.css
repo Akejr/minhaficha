@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    background-color: #0a0a0a;
+    color: #e5e2e1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root {
+    /* Total height of the top app bar including safe area inset.
+       Used by every <main> so content starts below it. */
+    --topbar-height: calc(env(safe-area-inset-top, 0px) + 64px);
+    /* Total bottom space reserved for the nav bar including safe area. */
+    --bottombar-height: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers for iOS PWA mode (notch / Dynamic Island / home bar).
+     viewport-fit=cover in app/layout.tsx exposes these env() variables.
+     These pad the inside of the fixed bars so content stops short of system UI. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .top-safe {
+    top: env(safe-area-inset-top, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Page main container utilities: respect both topbar and bottombar heights
+     so content never slips under either of them. */
+  .main-shell {
+    padding-top: calc(var(--topbar-height) + 24px);
+    padding-bottom: calc(var(--bottombar-height) + 24px);
+  }
+  .main-shell-tight {
+    padding-top: calc(var(--topbar-height) + 12px);
+    padding-bottom: calc(var(--bottombar-height) + 12px);
+  }
+
+  /* Entrance animation used on page main content for a snappier feel
+     between routes. Keeps GPU on translate/opacity (no layout work). */
+  .anim-page-in {
+    animation: page-in 220ms ease-out both;
+  }
+
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Tap-style press for cards and buttons. */
+  .press {
+    transition: transform 120ms ease-out, opacity 120ms ease-out;
+  }
+  .press:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background-color: rgba(26, 26, 26, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glow-active {
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.25);
+  }
+
+  .bg-grid-pattern {
+    background-image: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px
+      );
+    background-size: 24px 24px;
+  }
+}

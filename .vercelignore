@@ -1,0 +1,7 @@
+# Local-only artefacts that should not be uploaded to Vercel.
+.backtest-cache
+backtest-results
+.env.local
+.env*.local
+.next
+node_modules
