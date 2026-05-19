@@ -2,21 +2,33 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase auth cookie on every navigation so server
- * components always get a fresh session. Also gates protected routes:
- * unauthenticated users on /match/* / /historico / /perfil are redirected
- * to /entrar with a returnTo query param.
+ * Refreshes the Supabase auth cookie for protected routes only and bounces
+ * unauthenticated users to /entrar with the original path preserved.
+ *
+ * Performance note: every middleware invocation that calls `getUser()` adds
+ * ~150–400ms of latency because it validates the JWT against Supabase. We
+ * therefore SHORT-CIRCUIT for public paths and only do the round-trip for
+ * the few protected ones.
  */
 
 const PROTECTED_PREFIXES = ["/match", "/historico", "/perfil"];
-const PUBLIC_PREFIXES = ["/entrar", "/registar", "/api/auth"];
+const PUBLIC_AUTH_PREFIXES = ["/entrar", "/registar"];
 
 export async function middleware(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  const isProtected = PROTECTED_PREFIXES.some((p) => path.startsWith(p));
+  const isPublicAuth = PUBLIC_AUTH_PREFIXES.some((p) => path.startsWith(p));
+
+  // Public, non-auth pages: do nothing — fast path.
+  if (!isProtected && !isPublicAuth) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next({ request: { headers: req.headers } });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return res; // env not configured yet — let it pass
+  if (!url || !anonKey) return res;
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {
@@ -30,14 +42,9 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  // This call refreshes the session cookie if needed.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = req.nextUrl.pathname;
-  const isProtected = PROTECTED_PREFIXES.some((p) => path.startsWith(p));
-  const isPublicAuth = PUBLIC_PREFIXES.some((p) => path.startsWith(p));
 
   if (isProtected && !user) {
     const redirectUrl = req.nextUrl.clone();
@@ -46,8 +53,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Avoid bouncing logged-in users back into the auth pages.
-  if (isPublicAuth && user && path !== "/api/auth") {
+  if (isPublicAuth && user) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
@@ -59,12 +65,14 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - _next/static
-     * - _next/image
-     * - favicon.ico
-     * - team-logo proxy (very high traffic, no auth needed)
+     * Run middleware only on routes where it actually matters. Static assets,
+     * API routes (except auth-relevant ones), and the home page never require
+     * the auth cookie roundtrip.
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/team-logo).*)",
+    "/match/:path*",
+    "/historico/:path*",
+    "/perfil/:path*",
+    "/entrar",
+    "/registar",
   ],
 };

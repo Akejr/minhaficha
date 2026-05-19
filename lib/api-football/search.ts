@@ -1,6 +1,7 @@
 import { apiFootballGet } from "./client";
 import type { ApiFixture, ApiTeam } from "./types";
 import { translateForSearch } from "@/lib/i18n/team-translations";
+import { leaguePriority } from "./league-priority";
 
 /**
  * Search teams by name. The API mostly indexes English names, so we translate
@@ -56,6 +57,7 @@ export async function nextFixturesForTeam(
 
 export type SearchHit = {
   fixtureId: number;
+  leagueId: number;
   league: string;
   country: string;
   kickoff: string;
@@ -115,6 +117,7 @@ export async function searchUpcomingFixtures(
 
       byFixtureId.set(id, {
         fixtureId: id,
+        leagueId: f.league.id,
         league: f.league.name,
         country: f.league.country,
         kickoff: f.fixture.date,
@@ -135,7 +138,14 @@ export async function searchUpcomingFixtures(
     }
   }
 
+  // Sort: top-tier leagues first, then by kickoff date (sooner is better
+  // within the same tier). Cap to 12 results.
   return [...byFixtureId.values()]
-    .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
+    .sort((a, b) => {
+      const pa = leaguePriority(a.leagueId);
+      const pb = leaguePriority(b.leagueId);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
+    })
     .slice(0, 12);
 }

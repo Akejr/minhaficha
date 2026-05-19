@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { createServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/session";
 import { teamLogoUrl } from "@/lib/team-logo";
 import type { UserAnalysisRow } from "@/lib/supabase/types";
 
@@ -18,12 +19,10 @@ type Snapshot = {
 };
 
 export default async function HistoryPage() {
-  const supabase = createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/entrar?returnTo=/historico");
 
+  const supabase = createServerClient();
   const { data: rows } = await supabase
     .from("user_analyses")
     .select("*")

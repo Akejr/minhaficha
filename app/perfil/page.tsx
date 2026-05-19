@@ -3,28 +3,17 @@ import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { createServerClient } from "@/lib/supabase/server";
-import { effectivePlan, FREE_DAILY_LIMIT } from "@/lib/plans";
-import type { Profile } from "@/lib/supabase/types";
-
-export const dynamic = "force-dynamic";
+import { getCurrentSession } from "@/lib/supabase/session";
+import { FREE_DAILY_LIMIT } from "@/lib/plans";
 
 export default async function ProfilePage() {
-  const supabase = createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile, plan } = await getCurrentSession();
   if (!user) redirect("/entrar?returnTo=/perfil");
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  const profile = profileRow as Profile | null;
-
-  // Today's usage for the free counter.
+  // Today's usage for the free counter — only fetched when relevant.
   let usedToday = 0;
-  if (effectivePlan(profile) === "free") {
+  if (plan === "free") {
+    const supabase = createServerClient();
     const today = new Date().toISOString().slice(0, 10);
     const { data: usage } = await supabase
       .from("daily_usage")
@@ -56,5 +45,5 @@ export default async function ProfilePage() {
   );
 }
 
-
 // This page reads cookies (auth session), so it must be rendered per-request.
+export const dynamic = "force-dynamic";

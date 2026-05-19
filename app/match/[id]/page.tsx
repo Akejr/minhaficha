@@ -13,13 +13,13 @@ import {
 } from "@/lib/supabase/analysis-cache";
 import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
 import { createServerClient, serviceRoleClient } from "@/lib/supabase/server";
+import { getCurrentSession } from "@/lib/supabase/session";
 import {
-  effectivePlan,
   FREE_DAILY_LIMIT,
   type PlanInfo,
   PLANS,
 } from "@/lib/plans";
-import type { Plan, Profile } from "@/lib/supabase/types";
+import type { Plan } from "@/lib/supabase/types";
 
 type PageProps = {
   params: { id: string };
@@ -42,20 +42,10 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
   if (!Number.isFinite(fixtureId) || fixtureId <= 0) return null;
 
   const supabase = createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, plan } = await getCurrentSession();
   if (!user) {
     redirect(`/entrar?returnTo=/match/${id}`);
   }
-
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  const profile = profileRow as Profile | null;
-  const plan = effectivePlan(profile);
 
   // Has the user already viewed this fixture? If yes, don't count it again
   // against the free daily quota — re-opening from history is free.
