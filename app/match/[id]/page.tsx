@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
@@ -6,89 +6,63 @@ import { MatchHeader } from "@/components/MatchHeader";
 import { AISummary } from "@/components/AISummary";
 import { BetsSection } from "@/components/BetsSection";
 import { MatchStats } from "@/components/MatchStats";
+import { SubscribeButton } from "@/components/subscription/SubscribeButton";
 import { mockAnalyses, type MatchAnalysis } from "@/lib/mock-analysis";
 import {
   getOrCreateAnalysis,
-  recordUserView,
+  recordCodeView,
 } from "@/lib/supabase/analysis-cache";
 import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
-import { createServerClient, serviceRoleClient } from "@/lib/supabase/server";
-import { getCurrentSession } from "@/lib/supabase/session";
-import {
-  FREE_DAILY_LIMIT,
-  type PlanInfo,
-  PLANS,
-} from "@/lib/plans";
-import type { Plan } from "@/lib/supabase/types";
+import { getCurrentAccess } from "@/lib/access/session";
+import { isFreeFixture } from "@/lib/free-fixtures";
+import { PLAN } from "@/lib/plans";
 
 type PageProps = {
   params: { id: string };
 };
 
 type LoadResult =
-  | { kind: "ok"; analysis: MatchAnalysis; plan: Plan }
-  | { kind: "limit"; planInfo: PlanInfo };
+  | { kind: "ok"; analysis: MatchAnalysis; isFree: boolean }
+  | { kind: "locked" };
 
 /**
- * Load the analysis applying the same paywall rules as /api/analyze:
- *   - free users: 2/day limit; show paywall card if exceeded
- *   - any plan: served from Supabase cache when available
+ * Access rules for a fixture:
+ *
+ *   - one of the 3 "Análise grátis" fixtures → open to everyone, full
+ *     analysis, no code needed;
+ *   - anything else → needs a valid access code, otherwise we render the
+ *     paywall.
+ *
+ * Note there is no daily quota any more: access is binary.
  */
 async function loadAnalysis(id: string): Promise<LoadResult | null> {
   if (id in mockAnalyses) {
-    return { kind: "ok", analysis: mockAnalyses[id], plan: "free" };
+    return { kind: "ok", analysis: mockAnalyses[id], isFree: true };
   }
   const fixtureId = Number(id);
   if (!Number.isFinite(fixtureId) || fixtureId <= 0) return null;
 
-  const supabase = createServerClient();
-  const { user, plan } = await getCurrentSession();
-  if (!user) {
-    redirect(`/entrar?returnTo=/match/${id}`);
-  }
+  const [access, free] = await Promise.all([
+    getCurrentAccess(),
+    isFreeFixture(fixtureId),
+  ]);
 
-  // Has the user already viewed this fixture? If yes, don't count it again
-  // against the free daily quota — re-opening from history is free.
-  const { data: prior } = await supabase
-    .from("user_analyses")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("fixture_id", fixtureId)
-    .limit(1)
-    .maybeSingle();
-  const isRevisit = !!prior;
-
-  if (plan === "free" && !isRevisit) {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: usage } = await supabase
-      .from("daily_usage")
-      .select("analyses_count")
-      .eq("user_id", user.id)
-      .eq("day", today)
-      .maybeSingle();
-    const used = usage?.analyses_count ?? 0;
-    if (used >= FREE_DAILY_LIMIT) {
-      return { kind: "limit", planInfo: PLANS.monthly };
-    }
-  }
+  if (!access && !free) return { kind: "locked" };
 
   try {
     const result = await getOrCreateAnalysis(fixtureId);
-    if (plan === "free" && !isRevisit) {
-      try {
-        await serviceRoleClient().rpc("increment_daily_usage", {
-          target_user: user.id,
-        });
-      } catch {
-        /* fail open */
-      }
-    }
-    // Always log a fresh view row so the "Visto há X" label updates.
-    await recordUserView(user.id, fixtureId, result.payload, result.ai);
+    // History only exists for code holders.
+    await recordCodeView(
+      access?.code ?? null,
+      fixtureId,
+      result.payload,
+      result.ai,
+    );
     return {
       kind: "ok",
       analysis: mapAnalysisToMatchAnalysis(result.payload, result.ai),
-      plan,
+      // Free fixtures show every risk level, same as a paid code.
+      isFree: free && !access,
     };
   } catch (err) {
     console.error(`[match/${id}] analysis failed:`, err);
@@ -108,21 +82,23 @@ export default async function MatchAnalysisPage({ params }: PageProps) {
       <TopAppBar />
 
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in">
-        {result.kind === "limit" ? (
-          <DailyLimitCard />
+        {result.kind === "locked" ? (
+          <PaywallCard />
         ) : (
           <div className="flex flex-col gap-6">
             <MatchHeader analysis={result.analysis} />
+            {result.isFree && <FreeBadge />}
             <AISummary
               summary={result.analysis.aiSummary}
               confidence={result.analysis.confidence}
             />
-            <BetsSection bets={result.analysis.bets} plan={result.plan} />
+            <BetsSection bets={result.analysis.bets} />
             <MatchStats
               stats={result.analysis.stats}
               homeTeam={result.analysis.homeTeam}
               awayTeam={result.analysis.awayTeam}
             />
+            {result.isFree && <UpsellCard />}
           </div>
         )}
       </main>
@@ -132,7 +108,39 @@ export default async function MatchAnalysisPage({ params }: PageProps) {
   );
 }
 
-function DailyLimitCard() {
+function FreeBadge() {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
+      <span className="material-symbols-outlined text-emerald-300 text-[18px]">
+        lock_open_right
+      </span>
+      <p className="font-body-md text-[13px] text-on-surface">
+        Análise grátis — liberada para todos, sem código.
+      </p>
+    </div>
+  );
+}
+
+function UpsellCard() {
+  return (
+    <section className="glass-card rounded-2xl p-5 text-center">
+      <h3 className="font-headline-md text-[16px] text-on-surface mb-1">
+        Quer analisar qualquer jogo?
+      </h3>
+      <p className="font-body-md text-[13px] text-on-surface-variant mb-4">
+        Por {PLAN.priceLabel} {PLAN.cycleLabel} você libera todos os jogos e
+        recebe um código de acesso na hora.
+      </p>
+      <SubscribeButton />
+    </section>
+  );
+}
+
+/**
+ * Shown when a visitor without a code opens a fixture that isn't free.
+ * Two exits: buy, or enter an existing code.
+ */
+function PaywallCard() {
   return (
     <section className="flex flex-col items-center text-center pt-4">
       <div className="relative mb-5">
@@ -145,22 +153,22 @@ function DailyLimitCard() {
       </div>
 
       <span className="font-label-md text-label-md uppercase tracking-[0.2em] text-primary-container mb-2">
-        Limite atingido
+        Jogo bloqueado
       </span>
       <h2 className="font-display-lg text-[26px] leading-tight text-on-surface mb-2 tracking-tight">
-        Já usaste as duas
+        Este jogo é
         <br />
-        análises de hoje
+        para assinantes
       </h2>
       <p className="font-body-md text-[14px] text-on-surface-variant mb-6 max-w-[300px]">
-        Volta amanhã ou desbloqueia análises ilimitadas com baixo, médio e alto
-        risco em todos os jogos.
+        Os 3 jogos da seção &ldquo;Análise grátis&rdquo; na home são sempre
+        liberados. Para analisar qualquer outro jogo, assine.
       </p>
 
       <div className="glass-card rounded-2xl p-5 w-full text-left mb-4">
         <div className="flex items-center justify-between mb-3">
           <span className="font-label-md text-label-md uppercase tracking-wider text-primary-container">
-            Mensal · Mais escolhido
+            {PLAN.name}
           </span>
           <span className="font-label-md text-[10px] uppercase tracking-wider text-on-surface-variant">
             30 dias
@@ -168,18 +176,14 @@ function DailyLimitCard() {
         </div>
         <div className="flex items-baseline gap-2 mb-4">
           <span className="font-display-lg text-[36px] text-on-surface leading-none">
-            5.000
+            {PLAN.priceLabel}
           </span>
           <span className="font-headline-md text-[14px] text-on-surface-variant">
-            Kz
+            /mês
           </span>
         </div>
         <ul className="flex flex-col gap-2 mb-1">
-          {[
-            "Análises ilimitadas",
-            "As 3 sugestões em todos os jogos",
-            "Histórico completo guardado",
-          ].map((p) => (
+          {PLAN.perks.map((p) => (
             <li
               key={p}
               className="flex items-start gap-2 font-body-md text-[13px] text-on-surface-variant"
@@ -193,20 +197,23 @@ function DailyLimitCard() {
         </ul>
       </div>
 
-      <Link
-        href="/perfil"
-        className="w-full bg-gradient-to-r from-primary-container to-secondary-container text-white font-label-md text-label-md py-4 rounded-full hover:opacity-90 transition-all hover:shadow-[0_0_20px_rgba(255,107,0,0.4)] flex items-center justify-center gap-2"
-      >
-        Ver planos
-        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-      </Link>
+      <SubscribeButton />
 
+      <Link
+        href="/entrar"
+        className="mt-3 font-label-md text-label-md text-primary-container hover:opacity-80 transition-opacity"
+      >
+        Já tenho um código
+      </Link>
       <Link
         href="/"
         className="mt-3 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
       >
-        Voltar ao início
+        Ver os jogos grátis
       </Link>
     </section>
   );
 }
+
+// Reads the access cookie, so it must render per-request.
+export const dynamic = "force-dynamic";

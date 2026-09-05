@@ -32,7 +32,7 @@ export default function NotFound() {
           Página não encontrada
         </h1>
         <p className="font-body-md text-[14px] text-on-surface-variant mb-6 max-w-[300px]">
-          Este jogo não existe ou foi removido. Volta ao início e procura outro.
+          Este jogo não existe ou foi removido. Volte ao início e busque outro.
         </p>
 
         <Link

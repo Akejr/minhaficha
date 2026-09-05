@@ -96,7 +96,7 @@ function pinnedHttpsGet(
         lookup,
         headers: {
           Accept: "image/png,image/*,*/*",
-          "User-Agent": "FichaAI/1.0",
+          "User-Agent": "ApostAI/1.0",
         },
         timeout: 8000,
       },

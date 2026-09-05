@@ -1,7 +1,7 @@
 /**
  * Market registry. Every market the system supports is declared here with:
  *   - key:           internal identifier
- *   - label:         human-friendly Portuguese (Angola/Portugal) label
+ *   - label:         human-friendly Brazilian Portuguese (pt-BR) label
  *   - category:      grouping for the UI
  *
  * Adding a new market = add a row here, then implement it inside
@@ -82,42 +82,42 @@ export const MARKETS: Record<MarketKey, MarketDefinition> = {
     category: "double_chance",
   },
 
-  OVER_1_5: { key: "OVER_1_5", label: "Mais de 1.5 golos", category: "total_goals" },
-  OVER_2_5: { key: "OVER_2_5", label: "Mais de 2.5 golos", category: "total_goals" },
-  OVER_3_5: { key: "OVER_3_5", label: "Mais de 3.5 golos", category: "total_goals" },
-  OVER_4_5: { key: "OVER_4_5", label: "Mais de 4.5 golos", category: "total_goals" },
-  UNDER_1_5: { key: "UNDER_1_5", label: "Menos de 1.5 golos", category: "total_goals" },
-  UNDER_2_5: { key: "UNDER_2_5", label: "Menos de 2.5 golos", category: "total_goals" },
+  OVER_1_5: { key: "OVER_1_5", label: "Mais de 1.5 gols", category: "total_goals" },
+  OVER_2_5: { key: "OVER_2_5", label: "Mais de 2.5 gols", category: "total_goals" },
+  OVER_3_5: { key: "OVER_3_5", label: "Mais de 3.5 gols", category: "total_goals" },
+  OVER_4_5: { key: "OVER_4_5", label: "Mais de 4.5 gols", category: "total_goals" },
+  UNDER_1_5: { key: "UNDER_1_5", label: "Menos de 1.5 gols", category: "total_goals" },
+  UNDER_2_5: { key: "UNDER_2_5", label: "Menos de 2.5 gols", category: "total_goals" },
 
   OVER_1_5_HT: {
     key: "OVER_1_5_HT",
-    label: "Mais de 1.5 golos na 1ª parte",
+    label: "Mais de 1.5 gols no 1º tempo",
     category: "first_half_goals",
   },
   OVER_2_5_HT: {
     key: "OVER_2_5_HT",
-    label: "Mais de 2.5 golos na 1ª parte",
+    label: "Mais de 2.5 gols no 1º tempo",
     category: "first_half_goals",
   },
 
   HOME_OVER_1_5: {
     key: "HOME_OVER_1_5",
-    label: "Casa marca +1.5 golos",
+    label: "Casa marca +1.5 gols",
     category: "team_total",
   },
   HOME_OVER_2_5: {
     key: "HOME_OVER_2_5",
-    label: "Casa marca +2.5 golos",
+    label: "Casa marca +2.5 gols",
     category: "team_total",
   },
   AWAY_OVER_1_5: {
     key: "AWAY_OVER_1_5",
-    label: "Fora marca +1.5 golos",
+    label: "Fora marca +1.5 gols",
     category: "team_total",
   },
   AWAY_OVER_2_5: {
     key: "AWAY_OVER_2_5",
-    label: "Fora marca +2.5 golos",
+    label: "Fora marca +2.5 gols",
     category: "team_total",
   },
 
@@ -157,17 +157,17 @@ export const MARKETS: Record<MarketKey, MarketDefinition> = {
 
   CORNERS_OVER_8_5: {
     key: "CORNERS_OVER_8_5",
-    label: "Mais de 8.5 cantos",
+    label: "Mais de 8.5 escanteios",
     category: "corners",
   },
   CORNERS_OVER_9_5: {
     key: "CORNERS_OVER_9_5",
-    label: "Mais de 9.5 cantos",
+    label: "Mais de 9.5 escanteios",
     category: "corners",
   },
   CORNERS_OVER_10_5: {
     key: "CORNERS_OVER_10_5",
-    label: "Mais de 10.5 cantos",
+    label: "Mais de 10.5 escanteios",
     category: "corners",
   },
 };

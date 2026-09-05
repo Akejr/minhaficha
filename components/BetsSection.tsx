@@ -1,17 +1,19 @@
 import type { Bet } from "@/lib/mock-analysis";
 import { BetCard } from "./BetCard";
-import type { Plan } from "@/lib/supabase/types";
 
 type Props = {
   bets: Bet[];
-  plan: Plan;
 };
 
 /**
- * Renders the three risk-level bets. On the free plan we keep MEDIUM fully
- * visible and blur LOW + HIGH with a paywall overlay.
+ * Renders the risk-level bets (up to three: low / medium / high).
+ *
+ * Access is binary in the current model: if the page rendered at all, the
+ * visitor is entitled to the whole analysis — either because the fixture is
+ * one of the free ones or because they hold a valid access code. So there is
+ * no per-card paywall here any more.
  */
-export function BetsSection({ bets, plan }: Props) {
+export function BetsSection({ bets }: Props) {
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
@@ -28,11 +30,7 @@ export function BetsSection({ bets, plan }: Props) {
 
       <div className="grid grid-cols-1 gap-4">
         {bets.map((bet) => (
-          <BetCard
-            key={`${bet.riskLevel}-${bet.market}`}
-            bet={bet}
-            locked={plan === "free" && bet.riskLevel !== "medium"}
-          />
+          <BetCard key={`${bet.riskLevel}-${bet.market}`} bet={bet} />
         ))}
       </div>
     </section>

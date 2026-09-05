@@ -1,78 +1,54 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase auth cookie for protected routes only and bounces
- * unauthenticated users to /entrar with the original path preserved.
+ * Lightweight routing guards for the access-code model.
  *
- * Performance note: every middleware invocation that calls `getUser()` adds
- * ~150–400ms of latency because it validates the JWT against Supabase. We
- * therefore SHORT-CIRCUIT for public paths and only do the round-trip for
- * the few protected ones.
+ * There is no Supabase Auth token to refresh any more, so the middleware no
+ * longer makes a network call — it only looks at whether the access cookie is
+ * present. That drops the old ~150-400ms `getUser()` penalty entirely.
+ *
+ * IMPORTANT: presence of the cookie is NOT proof of a valid code. The cookie
+ * is only used here to decide where to send someone. Every page and route
+ * that serves paid content re-validates the code against the database via
+ * `getCurrentAccess()`. Treating this as authentication would be a hole; it's
+ * purely a redirect hint.
+ *
+ * /match is deliberately NOT guarded: the three free fixtures must stay open
+ * to anonymous visitors, and that decision needs the free-fixture list, which
+ * lives in the page.
  */
 
-const PROTECTED_PREFIXES = ["/match", "/historico", "/perfil"];
-const PUBLIC_AUTH_PREFIXES = ["/entrar", "/registar"];
+const PROTECTED_PREFIXES = ["/historico"];
+const PUBLIC_AUTH_PREFIXES = ["/entrar"];
 
-export async function middleware(req: NextRequest) {
+const ACCESS_COOKIE = "apostai_code";
+
+export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const isProtected = PROTECTED_PREFIXES.some((p) => path.startsWith(p));
   const isPublicAuth = PUBLIC_AUTH_PREFIXES.some((p) => path.startsWith(p));
 
-  // Public, non-auth pages: do nothing — fast path.
-  if (!isProtected && !isPublicAuth) {
-    return NextResponse.next();
-  }
+  if (!isProtected && !isPublicAuth) return NextResponse.next();
 
-  const res = NextResponse.next({ request: { headers: req.headers } });
+  const hasCookie = Boolean(req.cookies.get(ACCESS_COOKIE)?.value);
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return res;
-
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll: () => req.cookies.getAll(),
-      setAll: (toSet) => {
-        for (const { name, value, options } of toSet) {
-          req.cookies.set({ name, value, ...options });
-          res.cookies.set({ name, value, ...options });
-        }
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (isProtected && !user) {
+  if (isProtected && !hasCookie) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/entrar";
     redirectUrl.searchParams.set("returnTo", path);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (isPublicAuth && user) {
+  if (isPublicAuth && hasCookie) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/";
+    redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }
 
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Run middleware only on routes where it actually matters. Static assets,
-     * API routes (except auth-relevant ones), and the home page never require
-     * the auth cookie roundtrip.
-     */
-    "/match/:path*",
-    "/historico/:path*",
-    "/perfil/:path*",
-    "/entrar",
-    "/registar",
-  ],
+  matcher: ["/historico/:path*", "/entrar"],
 };

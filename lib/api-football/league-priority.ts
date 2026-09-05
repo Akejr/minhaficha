@@ -5,47 +5,59 @@
  * Anything not on the list falls into a default tier so it still appears
  * but after the prestigious leagues.
  *
- * The intent is: when a user types something like "brasil" the FIFA World
- * Cup match should win over a Brasileirão match, the Brasileirão should win
- * over a third-tier domestic cup, and so on.
+ * Tuned for a BRAZILIAN audience: domestic Brazilian competitions and
+ * CONMEBOL tournaments outrank European domestic leagues, because that's
+ * what our users search for most. The intent is: when someone types
+ * "flamengo", the Brasileirão / Libertadores fixture should come before a
+ * friendly or a lower-division cup tie.
  */
 
 const PRIORITY: Record<number, number> = {
-  // Tier 0 — once-every-four-years prestige
+  // Tier 0 — once-every-four-years prestige + Seleção
   1: 0, // FIFA World Cup
-  4: 0, // UEFA EURO Championship
   9: 0, // Copa America
+  4: 1, // UEFA EURO Championship
 
-  // Tier 1 — top European club competitions
-  2: 1, // UEFA Champions League
-  3: 2, // UEFA Europa League
-  848: 3, // UEFA Conference League
+  // Tier 1 — Brazilian domestic football (our core market)
+  71: 2, // Brasileirão Série A
+  73: 3, // Copa do Brasil
+  13: 3, // CONMEBOL Libertadores
 
-  // Tier 2 — Big Five domestic leagues
-  39: 4, // Premier League (England)
-  140: 4, // La Liga (Spain)
-  135: 4, // Serie A (Italy)
-  78: 4, // Bundesliga (Germany)
-  61: 4, // Ligue 1 (France)
+  // Tier 2 — rest of South America + Brazilian second division
+  11: 4, // CONMEBOL Sudamericana
+  72: 5, // Brasileirão Série B
+  475: 5, // Paulista - A1
+  476: 5, // Carioca - Serie A
 
-  // Tier 3 — strong secondary leagues
-  94: 6, // Liga Portugal
-  88: 6, // Eredivisie (Netherlands)
-  71: 6, // Brasileirão Série A
-  13: 6, // CONMEBOL Libertadores
-  11: 6, // CONMEBOL Sudamericana
+  // Tier 3 — top European club competitions (big audience in Brazil)
+  2: 6, // UEFA Champions League
+  3: 7, // UEFA Europa League
+  848: 8, // UEFA Conference League
 
-  // Tier 4 — large-but-secondary
-  253: 8, // MLS (USA)
-  307: 8, // Saudi Pro League
-  144: 8, // Belgium Pro League
-  203: 8, // Turkish Süper Lig
-  119: 8, // Danish Superliga
-  286: 8, // Greek Super League
-  113: 8, // Allsvenskan
-  103: 8, // Eliteserien
-  207: 8, // Swiss Super League
-  179: 8, // Scottish Premiership
+  // Tier 4 — Big Five domestic leagues
+  39: 9, // Premier League (England)
+  140: 9, // La Liga (Spain)
+  135: 9, // Serie A (Italy)
+  78: 9, // Bundesliga (Germany)
+  61: 9, // Ligue 1 (France)
+
+  // Tier 5 — strong secondary leagues
+  94: 11, // Liga Portugal
+  88: 11, // Eredivisie (Netherlands)
+  128: 11, // Liga Profesional Argentina
+  253: 11, // MLS (USA)
+
+  // Tier 6 — large-but-secondary
+  307: 13, // Saudi Pro League
+  144: 13, // Belgium Pro League
+  203: 13, // Turkish Süper Lig
+  119: 13, // Danish Superliga
+  286: 13, // Greek Super League
+  113: 13, // Allsvenskan
+  103: 13, // Eliteserien
+  207: 13, // Swiss Super League
+  179: 13, // Scottish Premiership
+  262: 13, // Liga MX (Mexico)
 };
 
 const DEFAULT_PRIORITY = 50;

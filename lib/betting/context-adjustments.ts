@@ -91,7 +91,7 @@ function restAdjustment(restDays: number | null): {
     );
     return {
       factor: 1 - penalty,
-      note: `Vem de jogo há ${restDays.toFixed(1)} dias — possível desgaste físico.`,
+      note: `Jogou há ${restDays.toFixed(1)} dias — possível desgaste físico.`,
     };
   }
   if (restDays > 9) {
@@ -101,7 +101,7 @@ function restAdjustment(restDays: number | null): {
     );
     return {
       factor: 1 + bonus,
-      note: `Vem de ${restDays.toFixed(0)} dias sem jogar — pode estar mais descansado, mas também menos ritmado.`,
+      note: `Está há ${restDays.toFixed(0)} dias sem jogar — pode estar mais descansado, mas também sem ritmo de jogo.`,
     };
   }
   return { factor: 1 };

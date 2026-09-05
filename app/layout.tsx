@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ficha AI",
+  title: "ApostAI",
   description:
     "Análise de probabilidades de jogos com IA. Sugestões de baixo, médio e alto risco em segundos.",
   // iOS PWA — when "Add to Home Screen" is used the app opens in fullscreen.
   appleWebApp: {
     capable: true,
-    title: "Ficha AI",
+    title: "ApostAI",
     statusBarStyle: "black-translucent",
   },
   // Treat the icon used by the home screen the same as the manifest icon.
@@ -36,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-PT" className="dark">
+    <html lang="pt-BR" className="dark">
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"

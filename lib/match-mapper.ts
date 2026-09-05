@@ -44,7 +44,7 @@ function toMockRisk(r: RiskLevel): MockRisk {
 function formatKickoff(iso: string): string {
   try {
     const d = new Date(iso);
-    return new Intl.DateTimeFormat("pt-PT", {
+    return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -65,22 +65,22 @@ function buildStats(payload: AnalysisPayload): Stat[] {
   if (home && away) {
     stats.push(
       {
-        label: "Aproveitamento na época",
+        label: "Aproveitamento na temporada",
         homeValue: `${home.wins}V ${home.draws}E ${home.loses}D`,
         awayValue: `${away.wins}V ${away.draws}E ${away.loses}D`,
       },
       {
-        label: "Golos marcados por jogo",
+        label: "Gols marcados por jogo",
         homeValue: home.goalsForAvg.toFixed(2),
         awayValue: away.goalsForAvg.toFixed(2),
       },
       {
-        label: "Golos sofridos por jogo",
+        label: "Gols sofridos por jogo",
         homeValue: home.goalsAgainstAvg.toFixed(2),
         awayValue: away.goalsAgainstAvg.toFixed(2),
       },
       {
-        label: "Jogos sem sofrer golo",
+        label: "Jogos sem sofrer gol",
         homeValue: String(home.cleanSheets),
         awayValue: String(away.cleanSheets),
       },

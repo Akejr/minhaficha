@@ -81,13 +81,19 @@ export async function getOrCreateAnalysis(
   return { payload, ai, fromCache: false };
 }
 
-/** Best-effort logging into the user's history table. Never throws. */
-export async function recordUserView(
-  userId: string,
+/**
+ * Best-effort history logging, scoped to an access code. Never throws.
+ *
+ * Anonymous visitors (the free fixtures) have no code, so nothing is
+ * recorded for them — history is a paid-tier feature by construction.
+ */
+export async function recordCodeView(
+  code: string | null,
   fixtureId: number,
   payload: AnalysisPayload,
   ai: AnalysisOutput,
 ) {
+  if (!code) return;
   try {
     const sb = serviceRoleClient();
     const snapshot = {
@@ -100,8 +106,8 @@ export async function recordUserView(
       summary: ai.summary,
       bets: ai.bets,
     };
-    await sb.from("user_analyses").insert({
-      user_id: userId,
+    await sb.from("code_analyses").insert({
+      code,
       fixture_id: fixtureId,
       snapshot: snapshot as unknown as Record<string, unknown>,
     });

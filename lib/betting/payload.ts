@@ -13,8 +13,9 @@ import type { ProbabilityMap } from "./types";
  * The IA's job is then to:
  *   1. Read this payload.
  *   2. Pick 3 markets (low / medium / high risk) from `markets`.
- *   3. Write rationale text in pt-BR using the plain-language `notes`,
- *      `homeFormNotes`, `awayFormNotes` — never citing math jargon.
+ *   3. Write rationale text in Brazilian Portuguese (pt-BR) using the
+ *      plain-language `notes`, `homeFormNotes`, `awayFormNotes` — never
+ *      citing math jargon.
  *
  * The IA does NOT recompute probabilities — it only ranks/selects.
  */
@@ -146,9 +147,9 @@ function buildH2HNotes(
   if (!h2h) return [];
   const lines: string[] = [];
   lines.push(
-    `Últimos ${h2h.played} confrontos diretos: ${h2h.homeWins} vitórias do ${homeName}, ${h2h.draws} empates, ${h2h.awayWins} vitórias do ${awayName}.`,
+    `Últimos ${h2h.played} confrontos diretos: ${h2h.homeWins} vitórias do ${homeName}, ${h2h.draws} empates e ${h2h.awayWins} vitórias do ${awayName}.`,
   );
-  lines.push(`Média de ${h2h.avgGoals.toFixed(1)} golos por jogo nesses encontros.`);
+  lines.push(`Média de ${h2h.avgGoals.toFixed(1)} gols por jogo nesses confrontos.`);
   return lines;
 }
 

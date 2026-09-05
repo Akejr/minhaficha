@@ -1,24 +1,24 @@
 import Link from "next/link";
-import { getCurrentSession } from "@/lib/supabase/session";
+import { getCurrentAccess } from "@/lib/access/session";
 
 /**
- * Top bar shown on every page. Right-side badge state depends on auth + plan:
+ * Top bar shown on every page. The right-hand badge reflects access state:
  *
- *   - logged out                       → "Entrar"  (links to /entrar)
- *   - logged in, free plan / expired   → "Grátis"  (links to /perfil)
- *   - logged in, weekly or monthly     → "PRO"     (links to /perfil)
+ *   - no code            → "Entrar"      (links to /entrar)
+ *   - active paid code   → "PRO"         (links to /perfil)
+ *   - permanent code     → "VIP"         (links to /perfil)
  *
- * The session lookup is memoised per-request via React.cache, so calling
- * getCurrentSession() here AND inside the page component costs only one
- * Supabase round-trip total.
+ * getCurrentAccess() is memoised per request via React.cache, so calling it
+ * here and in the page costs a single lookup.
  */
 export async function TopAppBar() {
-  const { user, plan } = await getCurrentSession();
+  const access = await getCurrentAccess();
 
-  let badge: BadgeState;
-  if (!user) badge = { kind: "guest" };
-  else if (plan === "free") badge = { kind: "free" };
-  else badge = { kind: "pro" };
+  const badge: BadgeState = !access
+    ? { kind: "guest" }
+    : access.isPermanent
+      ? { kind: "vip" }
+      : { kind: "pro" };
 
   return (
     <header
@@ -35,7 +35,7 @@ export async function TopAppBar() {
         className="flex items-center gap-3 hover:opacity-80 transition-opacity active:scale-95 duration-200"
       >
         <span className="font-headline-lg-mobile text-headline-lg-mobile font-bold bg-gradient-to-r from-primary-container to-secondary-container bg-clip-text text-transparent">
-          Ficha AI
+          ApostAI
         </span>
       </Link>
       <Badge state={badge} />
@@ -43,7 +43,7 @@ export async function TopAppBar() {
   );
 }
 
-type BadgeState = { kind: "guest" } | { kind: "free" } | { kind: "pro" };
+type BadgeState = { kind: "guest" } | { kind: "pro" } | { kind: "vip" };
 
 function Badge({ state }: { state: BadgeState }) {
   if (state.kind === "guest") {
@@ -57,14 +57,14 @@ function Badge({ state }: { state: BadgeState }) {
       </Link>
     );
   }
-  if (state.kind === "free") {
+  if (state.kind === "vip") {
     return (
       <Link
         href="/perfil"
         prefetch
-        className="bg-surface-container/80 text-on-surface-variant border border-white/10 rounded-full px-4 py-1.5 font-label-md text-label-md uppercase tracking-wider hover:opacity-80 transition-opacity active:scale-95 duration-200"
+        className="bg-gradient-to-r from-emerald-500 to-primary-container text-white border border-emerald-400/40 rounded-full px-4 py-1.5 font-label-md text-label-md uppercase tracking-wider hover:opacity-90 transition-opacity active:scale-95 duration-200 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
       >
-        Grátis
+        VIP
       </Link>
     );
   }

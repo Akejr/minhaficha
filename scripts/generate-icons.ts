@@ -7,7 +7,7 @@
  *   - icon-mask.png  (maskable, padded for safe zone)
  *   - apple-icon.png (180×180, Apple touch icon)
  *
- * Style: solid #ff6b00 (primary-container) with a white "F" centered.
+ * Style: solid #ff6b00 (primary-container) with a white "A" centered.
  * Real artwork can replace these any time.
  *
  * No external deps — uses a tiny zlib-only PNG encoder.
@@ -24,8 +24,15 @@ type Color = [number, number, number, number];
 const ORANGE: Color = [0xff, 0x6b, 0x00, 0xff];
 const WHITE: Color = [0xff, 0xff, 0xff, 0xff];
 
-/** Render a giant "F" letter into the buffer using a simple bitmap font. */
-function renderLetterF(
+/**
+ * Render a giant "A" letter into the buffer.
+ *
+ * The glyph is drawn as three strokes: two diagonal legs that meet at the
+ * top-centre apex, plus a horizontal crossbar at 62% of the height. The legs
+ * are rasterised row by row (each row fills a small horizontal run) which
+ * gives clean diagonals without needing a font renderer.
+ */
+function renderLetterA(
   buf: Buffer,
   width: number,
   height: number,
@@ -43,21 +50,49 @@ function renderLetterF(
       buf[i + 3] = bg[3];
     }
   }
-  // Stroke geometry for the "F".
+
   const left = inset;
   const right = width - inset;
   const top = inset;
   const bottom = height - inset;
-  const stroke = Math.round((right - left) * 0.18);
+  const glyphW = right - left;
+  const glyphH = bottom - top;
+  const stroke = Math.max(2, Math.round(glyphW * 0.16));
+  const apexX = left + glyphW / 2;
 
-  // Vertical stem (full height).
-  fillRect(buf, width, left, top, left + stroke, bottom, fg);
-  // Top horizontal.
-  fillRect(buf, width, left, top, right, top + stroke, fg);
-  // Mid horizontal (a bit shorter).
-  const midRight = left + Math.round((right - left) * 0.66);
-  const midTop = Math.round(top + (bottom - top) * 0.42);
-  fillRect(buf, width, left, midTop, midRight, midTop + stroke, fg);
+  // Diagonal legs: for each scanline, interpolate the leg centre from the
+  // apex (top) down to the outer baseline corners (bottom).
+  for (let y = top; y < bottom; y++) {
+    const t = (y - top) / glyphH; // 0 at apex, 1 at baseline
+    const leftCentre = apexX - t * (apexX - left);
+    const rightCentre = apexX + t * (right - apexX);
+
+    fillRect(
+      buf,
+      width,
+      Math.round(leftCentre - stroke / 2),
+      y,
+      Math.round(leftCentre + stroke / 2),
+      y + 1,
+      fg,
+    );
+    fillRect(
+      buf,
+      width,
+      Math.round(rightCentre - stroke / 2),
+      y,
+      Math.round(rightCentre + stroke / 2),
+      y + 1,
+      fg,
+    );
+  }
+
+  // Crossbar, spanning between the two legs at 62% of the height.
+  const barT = 0.62;
+  const barY = Math.round(top + glyphH * barT);
+  const barLeft = Math.round(apexX - barT * (apexX - left) - stroke / 2);
+  const barRight = Math.round(apexX + barT * (right - apexX) + stroke / 2);
+  fillRect(buf, width, barLeft, barY, barRight, barY + stroke, fg);
 }
 
 function fillRect(
@@ -136,7 +171,7 @@ function crc32(buf: Buffer): number {
 function makeIcon(size: number, paddingPct: number, file: string) {
   const buf = Buffer.alloc(size * size * 4);
   const inset = Math.round(size * paddingPct);
-  renderLetterF(buf, size, size, inset, ORANGE, WHITE);
+  renderLetterA(buf, size, size, inset, ORANGE, WHITE);
   writePng(path.join(PUBLIC, file), size, size, buf);
 }
 

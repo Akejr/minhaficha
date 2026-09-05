@@ -48,3 +48,9 @@ Thumbs.db
 
 # IDE / agent metadata
 /.kiro
+/.toquemedia
+/.toquemedia-id
+
+# local logs / accidental shell artifacts
+dev-server.log
+$null

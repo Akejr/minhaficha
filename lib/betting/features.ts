@@ -97,7 +97,7 @@ function h2hGoalsAdjust(
   const factor = clamp(ratio, 0.9, 1.1);
   return {
     factor,
-    note: `Confrontos diretos: média de ${total.toFixed(1)} golos por jogo nos últimos ${h2hFixtures.length} encontros.`,
+    note: `Confrontos diretos: média de ${total.toFixed(1)} gols por jogo nos últimos ${h2hFixtures.length} confrontos.`,
   };
 }
 
@@ -142,7 +142,7 @@ function estimateFirstHalfShare(
   const share = clamp(avg, 0.30, 0.55);
   return {
     share,
-    note: `Padrão de golos: ${(share * 100).toFixed(0)}% saem na 1ª parte (média das duas equipas nesta época).`,
+    note: `Padrão de gols: ${(share * 100).toFixed(0)}% saem no 1º tempo (média dos dois times nesta temporada).`,
   };
 }
 
@@ -186,7 +186,7 @@ export function extractFeatures(ctx: FixtureContext): Features {
 
   const leaguePrior = estimateLeaguePrior(ctx.homeStats, ctx.awayStats);
   notes.push(
-    `Liga: ${ctx.fixture.league.name}. Em casa, a equipa da casa marca em média ${leaguePrior.goalsHomeLeg.toFixed(2)} golos; visitantes marcam ${leaguePrior.goalsAwayLeg.toFixed(2)}.`,
+    `Liga: ${ctx.fixture.league.name}. Jogando em casa, o mandante marca em média ${leaguePrior.goalsHomeLeg.toFixed(2)} gols; os visitantes marcam ${leaguePrior.goalsAwayLeg.toFixed(2)}.`,
   );
 
   // Att/Def strengths and season-implied λ.
@@ -205,7 +205,7 @@ export function extractFeatures(ctx: FixtureContext): Features {
       lambdaAway: leaguePrior.goalsAwayLeg,
     };
     notes.push(
-      "Sem estatísticas completas da época — análise baseada na média da liga.",
+      "Sem estatísticas completas da temporada — análise baseada na média da liga.",
     );
   }
 

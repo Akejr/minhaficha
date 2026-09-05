@@ -2,17 +2,21 @@ import { apiFootballGet } from "./client";
 import type { ApiFixture } from "./types";
 
 /**
- * Top European leagues we feature on the home page.
- * Order doesn't matter for display — we sort by kickoff and pick the soonest.
+ * Leagues we feature on the home page, ordered by relevance to our
+ * Brazilian audience: domestic Brazilian football and CONMEBOL first, then
+ * the European competitions Brazilians follow most.
+ *
+ * Order matters as a tie-breaker only — the real sort is by kickoff, so we
+ * always show the soonest fixtures.
  */
-const TOP_EUROPEAN_LEAGUES = [
+const FEATURED_LEAGUES = [
+  { id: 71, name: "Brasileirão Série A" },
+  { id: 73, name: "Copa do Brasil" },
+  { id: 13, name: "Libertadores" },
+  { id: 11, name: "Sul-Americana" },
   { id: 2, name: "Champions League" },
-  { id: 3, name: "Europa League" },
   { id: 39, name: "Premier League" },
   { id: 140, name: "La Liga" },
-  { id: 135, name: "Serie A" },
-  { id: 78, name: "Bundesliga" },
-  { id: 61, name: "Ligue 1" },
 ];
 
 const HOME_FIXTURES_LIMIT = 3;
@@ -33,13 +37,13 @@ export type PopularFixture = {
 };
 
 /**
- * Pull the next 2 fixtures from each top league, drop anything whose kickoff
- * has already passed, sort the survivors by date, and return the 3 soonest
- * — guaranteed each from a distinct league.
+ * Pull the next 2 fixtures from each featured league, drop anything whose
+ * kickoff has already passed, sort the survivors by date, and return the 3
+ * soonest — guaranteed each from a distinct league.
  */
 export async function fetchPopularFixtures(): Promise<PopularFixture[]> {
   const lists = await Promise.all(
-    TOP_EUROPEAN_LEAGUES.map((l) =>
+    FEATURED_LEAGUES.map((l) =>
       apiFootballGet<ApiFixture>(
         "/fixtures",
         { league: l.id, next: 2 },

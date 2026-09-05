@@ -240,22 +240,22 @@ function buildNotes(args: {
     const l = list.filter((g) => g.result === "L").length;
     const tierLabel =
       tier === "top"
-        ? "equipas do topo"
+        ? "times da parte de cima da tabela"
         : tier === "bottom"
-          ? "equipas do fundo"
-          : "equipas a meio da tabela";
-    tierLines.push(`frente a ${tierLabel}: ${w}V ${d}E ${l}D em ${list.length} jogos`);
+          ? "times da parte de baixo da tabela"
+          : "times do meio da tabela";
+    tierLines.push(`contra ${tierLabel}: ${w}V ${d}E ${l}D em ${list.length} jogos`);
   }
   if (tierLines.length > 0) notes.push(tierLines.join(" · "));
 
   // Trend note.
   if (args.trend === 1) {
     notes.push(
-      "Tendência em alta: a equipa tem somado mais pontos nas últimas 5 jornadas do que nas 5 anteriores.",
+      "Tendência em alta: o time somou mais pontos nas últimas 5 rodadas do que nas 5 anteriores.",
     );
   } else if (args.trend === -1) {
     notes.push(
-      "Tendência em queda: a equipa tem rendido menos nas últimas 5 jornadas do que nas 5 anteriores.",
+      "Tendência em queda: o time rendeu menos nas últimas 5 rodadas do que nas 5 anteriores.",
     );
   }
 

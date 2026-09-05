@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * Shared shell for /entrar and /registar:
+ * Shared shell for the auth screens (currently just /entrar):
  *   - branded illustration / icon block
  *   - title + subtitle
  *   - children (the actual form)

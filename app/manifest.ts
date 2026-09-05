@@ -9,8 +9,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ficha AI",
-    short_name: "Ficha AI",
+    name: "ApostAI",
+    short_name: "ApostAI",
     description:
       "Análise de probabilidades de jogos com IA. Sugestões de baixo, médio e alto risco em segundos.",
     start_url: "/",
@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait",
     background_color: "#131313",
     theme_color: "#131313",
-    lang: "pt-PT",
+    lang: "pt-BR",
     icons: [
       {
         src: "/icon-192.png",

@@ -104,8 +104,8 @@ export function HeroSearch() {
       </h1>
 
       <p className="font-body-lg text-body-lg text-on-surface-variant mb-10 max-w-lg">
-        Escreva o nome da equipa ou do jogo. A nossa IA analisa milhares de
-        dados em segundos para entregar as melhores probabilidades.
+        Digite o nome do time ou do jogo. Nossa IA analisa milhares de dados em
+        segundos para entregar as melhores probabilidades.
       </p>
 
       <div ref={containerRef} className="w-full relative">
@@ -125,7 +125,7 @@ export function HeroSearch() {
             }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKey}
-            placeholder="Ex: Benfica, Real Madrid, Manchester..."
+            placeholder="Ex: Flamengo, Palmeiras, Corinthians..."
             className="w-full bg-black border border-white/10 rounded-full py-5 pl-16 pr-[130px] font-body-lg text-body-lg text-on-surface placeholder:text-surface-variant focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all shadow-lg focus:shadow-[0_0_25px_rgba(255,107,0,0.15)]"
             autoComplete="off"
             aria-autocomplete="list"
@@ -213,19 +213,19 @@ function SearchDropdown({
           <span className="material-symbols-outlined animate-spin text-primary-container">
             progress_activity
           </span>
-          <span className="font-body-md text-body-md">A procurar jogos...</span>
+          <span className="font-body-md text-body-md">Buscando jogos...</span>
         </div>
       )}
 
       {status === "empty" && (
         <div className="px-5 py-4 text-on-surface-variant font-body-md text-body-md">
-          Nenhum jogo encontrado para essa equipa.
+          Nenhum jogo encontrado para esse time.
         </div>
       )}
 
       {status === "error" && (
         <div className="px-5 py-4 text-error font-body-md text-body-md">
-          Não conseguimos buscar agora. Tenta de novo em alguns segundos.
+          Não conseguimos buscar agora. Tente de novo em alguns segundos.
         </div>
       )}
 
@@ -255,7 +255,7 @@ function SearchRow({
   onHover: () => void;
 }) {
   const dt = new Date(hit.kickoff);
-  const kickoffLabel = new Intl.DateTimeFormat("pt-PT", {
+  const kickoffLabel = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

@@ -17,7 +17,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     // Log to the browser console so we have something concrete to debug.
-    console.error("[ficha-ai] runtime error:", error);
+    console.error("[apostai] runtime error:", error);
   }, [error]);
 
   return (
@@ -32,10 +32,10 @@ export default function GlobalError({
       </div>
 
       <h1 className="font-headline-md text-[22px] text-on-surface mb-2">
-        Algo correu mal
+        Algo deu errado
       </h1>
       <p className="font-body-md text-[14px] text-on-surface-variant mb-6 max-w-[300px]">
-        Tivemos um problema a carregar esta página. Tenta de novo em alguns
+        Tivemos um problema ao carregar esta página. Tente de novo em alguns
         segundos.
       </p>
 

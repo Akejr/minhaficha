@@ -3,9 +3,15 @@ import { fetchPopularFixtures } from "@/lib/api-football/popular";
 import { teamLogoUrl } from "@/lib/team-logo";
 
 /**
- * Server component — fetches the next 3 upcoming matches across the top
- * European leagues. Renders a static, cacheable strip; clicking any card
- * goes to /match/[fixtureId] which runs the full IA analysis.
+ * "Análise grátis" — the free tier, rendered as a strip of 3 fixtures.
+ *
+ * These are the ONLY fixtures anyone can analyse without an access code, and
+ * they're free permanently (no daily quota). lib/free-fixtures.ts derives the
+ * allow-list from this very same call, so what's shown here and what's
+ * actually unlocked can never drift apart.
+ *
+ * Server component: fetches the next fixtures across our featured leagues
+ * (Brazilian football first) and renders a cacheable strip.
  */
 export async function PopularMatchesSection() {
   let fixtures: Awaited<ReturnType<typeof fetchPopularFixtures>> = [];
@@ -17,13 +23,21 @@ export async function PopularMatchesSection() {
 
   return (
     <section className="w-full max-w-5xl mx-auto mt-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary-container">
-            local_fire_department
-          </span>
-          Jogos Populares
-        </h2>
+      <div className="flex items-start justify-between mb-4 gap-3">
+        <div className="min-w-0">
+          <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-emerald-300">
+              lock_open_right
+            </span>
+            Análise grátis
+          </h2>
+          <p className="font-body-md text-[13px] text-on-surface-variant mt-1">
+            Estes jogos são sempre gratuitos. Sem código, sem cadastro.
+          </p>
+        </div>
+        <span className="shrink-0 mt-1 font-label-md text-[10px] uppercase tracking-wider px-2 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
+          Grátis
+        </span>
       </div>
 
       {fixtures.length === 0 ? (
@@ -47,7 +61,7 @@ type CardProps = {
 
 function PopularCard({ fixture }: CardProps) {
   const dt = new Date(fixture.kickoff);
-  const dateLabel = new Intl.DateTimeFormat("pt-PT", {
+  const dateLabel = new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",
     day: "2-digit",
     month: "2-digit",
@@ -80,6 +94,15 @@ function PopularCard({ fixture }: CardProps) {
         <TeamRow name={fixture.home.name} logoUrl={fixture.home.logo} />
         <div className="h-px w-full bg-white/5" />
         <TeamRow name={fixture.away.name} logoUrl={fixture.away.logo} />
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-emerald-300 text-[16px]">
+          check_circle
+        </span>
+        <span className="font-label-md text-[11px] uppercase tracking-wider text-emerald-300">
+          Análise completa liberada
+        </span>
       </div>
     </Link>
   );

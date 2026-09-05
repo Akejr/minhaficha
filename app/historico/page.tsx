@@ -2,10 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
-import { createServerClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/supabase/session";
+import { serviceRoleClient } from "@/lib/supabase/server";
+import { getCurrentAccess } from "@/lib/access/session";
 import { teamLogoUrl } from "@/lib/team-logo";
-import type { UserAnalysisRow } from "@/lib/supabase/types";
+import type { CodeAnalysisRow } from "@/lib/supabase/types";
 
 type Snapshot = {
   league: string;
@@ -19,18 +19,19 @@ type Snapshot = {
 };
 
 export default async function HistoryPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/entrar?returnTo=/historico");
+  // History belongs to a code, so it needs one.
+  const access = await getCurrentAccess();
+  if (!access) redirect("/entrar?returnTo=/historico");
 
-  const supabase = createServerClient();
+  const supabase = serviceRoleClient();
   const { data: rows } = await supabase
-    .from("user_analyses")
+    .from("code_analyses")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("code", access.code)
     .order("viewed_at", { ascending: false })
     .limit(60);
 
-  const list = dedupeByFixture((rows ?? []) as UserAnalysisRow[]).slice(0, 30);
+  const list = dedupeByFixture((rows ?? []) as CodeAnalysisRow[]).slice(0, 30);
 
   return (
     <>
@@ -48,7 +49,7 @@ export default async function HistoryPage() {
             Histórico
           </h1>
           <p className="font-body-md text-[13px] text-on-surface-variant mt-1">
-            {list.length} {list.length === 1 ? "análise guardada" : "análises guardadas"}
+            {list.length} {list.length === 1 ? "análise salva" : "análises salvas"}
           </p>
         </header>
 
@@ -76,9 +77,9 @@ export default async function HistoryPage() {
   );
 }
 
-function dedupeByFixture(rows: UserAnalysisRow[]): UserAnalysisRow[] {
+function dedupeByFixture(rows: CodeAnalysisRow[]): CodeAnalysisRow[] {
   const seen = new Set<number>();
-  const out: UserAnalysisRow[] = [];
+  const out: CodeAnalysisRow[] = [];
   for (const r of rows) {
     if (seen.has(r.fixture_id)) continue;
     seen.add(r.fixture_id);
@@ -99,13 +100,13 @@ function EmptyState() {
         Ainda sem histórico
       </p>
       <p className="font-body-md text-[13px] text-on-surface-variant mb-5">
-        Cada jogo que analisares aparece aqui automaticamente.
+        Cada jogo que você analisar aparece aqui automaticamente.
       </p>
       <Link
         href="/"
         className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-container to-secondary-container text-white font-label-md text-label-md px-5 py-2.5 rounded-full hover:opacity-90 transition-all"
       >
-        Procurar um jogo
+        Buscar um jogo
         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
       </Link>
     </div>
@@ -122,7 +123,7 @@ function HistoryRow({
   viewedAt: string;
 }) {
   const kickoffDate = new Date(snap.kickoff);
-  const kickoffLabel = new Intl.DateTimeFormat("pt-PT", {
+  const kickoffLabel = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -218,7 +219,7 @@ function relativeTime(date: Date): string {
   if (hrs < 24) return `há ${hrs} ${hrs === 1 ? "hora" : "horas"}`;
   const days = Math.round(hrs / 24);
   if (days < 30) return `há ${days} ${days === 1 ? "dia" : "dias"}`;
-  return new Intl.DateTimeFormat("pt-PT", {
+  return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
   }).format(date);

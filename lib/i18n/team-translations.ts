@@ -1,11 +1,15 @@
 /**
- * Mapping of Portuguese / common-Latin team and country names to the
- * English variants stored in API-Football. The API mostly indexes teams in
- * English, so a Portuguese-speaking user typing "Marrocos" or "Inglaterra"
- * gets zero hits unless we translate before querying.
+ * Mapping of Brazilian-Portuguese team and country names to the variants
+ * stored in API-Football. The API mostly indexes countries in English and
+ * clubs under their formal names, so a Brazilian user typing "Marrocos",
+ * "Inglaterra" or "timão" gets zero hits unless we translate first.
  *
- * The map is intentionally small: only the 50-or-so high-volume queries
- * we expect. For everything else we still query the original term.
+ * Two groups live here:
+ *   - country / national-team names (pt → en)
+ *   - club nicknames and short forms (mostly Brazilian, plus the European
+ *     clubs with a big following in Brazil)
+ *
+ * For anything not listed we still query the original term.
  */
 
 const TRANSLATIONS: Record<string, string> = {
@@ -83,10 +87,74 @@ const TRANSLATIONS: Record<string, string> = {
   uruguai: "uruguay",
   venezuela: "venezuela",
 
-  // Common team aliases
+  // Brazilian clubs — nicknames and short forms our users actually type.
+  // API-Football indexes these under their formal names, so the mapping
+  // turns "timão" into a query that actually returns something.
+  flamengo: "flamengo",
+  fla: "flamengo",
+  mengao: "flamengo",
+  mengão: "flamengo",
+  palmeiras: "palmeiras",
+  verdao: "palmeiras",
+  verdão: "palmeiras",
+  porco: "palmeiras",
+  corinthians: "corinthians",
+  timao: "corinthians",
+  timão: "corinthians",
+  coringao: "corinthians",
+  coringão: "corinthians",
+  "sao paulo": "sao paulo",
+  "são paulo": "sao paulo",
+  spfc: "sao paulo",
+  santos: "santos",
+  peixe: "santos",
+  fluminense: "fluminense",
+  flu: "fluminense",
+  vasco: "vasco da gama",
+  vascao: "vasco da gama",
+  vascão: "vasco da gama",
+  botafogo: "botafogo",
+  fogao: "botafogo",
+  fogão: "botafogo",
+  gremio: "gremio",
+  grêmio: "gremio",
+  imortal: "gremio",
+  internacional: "internacional",
+  colorado: "internacional",
+  cruzeiro: "cruzeiro",
+  raposa: "cruzeiro",
+  galo: "atletico mineiro",
+  atletico: "atletico mineiro",
+  atlético: "atletico mineiro",
+  athletico: "athletico paranaense",
+  furacao: "athletico paranaense",
+  furacão: "athletico paranaense",
+  bahia: "bahia",
+  tricolor: "bahia",
+  vitoria: "vitoria",
+  vitória: "vitoria",
+  fortaleza: "fortaleza",
+  ceara: "ceara",
+  ceará: "ceara",
+  sport: "sport recife",
+  nautico: "nautico",
+  náutico: "nautico",
+  goias: "goias",
+  goiás: "goias",
+  atleticogo: "atletico goianiense",
+  coritiba: "coritiba",
+  chapecoense: "chapecoense",
+  juventude: "juventude",
+  bragantino: "red bull bragantino",
+  "red bull": "red bull bragantino",
+  cuiaba: "cuiaba",
+  cuiabá: "cuiaba",
+  mirassol: "mirassol",
+  santa: "santa cruz",
+
+  // European clubs
   bayern: "bayern munich",
   juve: "juventus",
-  juventude: "juventude",
   manu: "manchester united",
   city: "manchester city",
   united: "manchester united",
@@ -96,12 +164,7 @@ const TRANSLATIONS: Record<string, string> = {
   barça: "barcelona",
   barca: "barcelona",
   atleti: "atletico madrid",
-  flamengo: "flamengo",
-  fla: "flamengo",
-  flu: "fluminense",
-  galo: "atletico mineiro",
   inter: "internazionale",
-  internacional: "internacional",
   benfica: "benfica",
   porto: "porto",
   sporting: "sporting cp",

@@ -15,11 +15,11 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[ficha-ai] global error:", error);
+    console.error("[apostai] global error:", error);
   }, [error]);
 
   return (
-    <html lang="pt-PT">
+    <html lang="pt-BR">
       <body
         style={{
           backgroundColor: "#0a0a0a",
@@ -45,11 +45,11 @@ export default function GlobalError({
               WebkitTextFillColor: "transparent",
             }}
           >
-            Ficha AI
+            ApostAI
           </div>
-          <h1 style={{ fontSize: 20, marginBottom: 8 }}>Algo correu mal</h1>
+          <h1 style={{ fontSize: 20, marginBottom: 8 }}>Algo deu errado</h1>
           <p style={{ opacity: 0.7, marginBottom: 24, fontSize: 14 }}>
-            Tivemos um problema crítico. Tenta de novo.
+            Tivemos um problema crítico. Tente de novo.
           </p>
           <button
             onClick={() => reset()}

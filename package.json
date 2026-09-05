@@ -1,9 +1,9 @@
 {
-  "name": "ficha-ai",
+  "name": "apostai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 8080",
+    "dev": "next dev -p 8080 --hostname 0.0.0.0",
     "dev:fresh": "rimraf .next && next dev -p 8080",
     "build": "next build",
     "start": "next start",
@@ -12,7 +12,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "next": "14.2.15",
     "react": "^18.3.1",

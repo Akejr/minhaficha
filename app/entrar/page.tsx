@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { CodeLoginForm } from "@/components/auth/CodeLoginForm";
 
 export default async function LoginPage() {
   return (
@@ -13,7 +13,7 @@ export default async function LoginPage() {
 
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern min-h-screen anim-page-in">
         <Suspense fallback={null}>
-          <LoginForm />
+          <CodeLoginForm />
         </Suspense>
       </main>
 

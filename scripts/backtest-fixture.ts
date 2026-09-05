@@ -212,7 +212,7 @@ async function main() {
   const ctx = await buildAsOfContext(fixtureId, asOf);
   const fx = ctx.fixture;
   console.log(`${fx.teams.home.name} vs ${fx.teams.away.name}`);
-  console.log(`${fx.league.name}, jornada "${fx.league.round}", ${fx.fixture.date}`);
+  console.log(`${fx.league.name}, rodada "${fx.league.round}", ${fx.fixture.date}`);
   if (fx.fixture.status.short === "FT") {
     console.log(
       `Resultado real: ${fx.teams.home.name} ${fx.goals.home} - ${fx.goals.away} ${fx.teams.away.name}` +
