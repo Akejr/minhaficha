@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -51,6 +52,8 @@ export default function RootLayout({
         <div className="bg-background min-h-screen mx-auto w-full max-w-[440px] relative shadow-[0_0_80px_rgba(0,0,0,0.6)]">
           {children}
         </div>
+        {/* Support FAB, present on every route. Sits above the bottom nav. */}
+        <WhatsAppButton />
       </body>
     </html>
   );
