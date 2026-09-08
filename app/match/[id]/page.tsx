@@ -15,7 +15,7 @@ import {
 import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
 import { getCurrentAccess } from "@/lib/access/session";
 import { isFreeFixture } from "@/lib/free-fixtures";
-import { logEvent } from "@/lib/analytics/events";
+import { isPrefetchRequest, logEvent } from "@/lib/analytics/events";
 import { PLAN } from "@/lib/plans";
 
 type PageProps = {
@@ -48,27 +48,35 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
     isFreeFixture(fixtureId),
   ]);
 
+  // A router prefetch renders this page in the background. It is NOT a visit,
+  // so nothing about it may be recorded — otherwise merely showing a link
+  // counts as opening the analysis.
+  const prefetch = isPrefetchRequest();
+
   if (!access && !free) {
-    await logEvent({ type: "analysis_blocked", fixtureId });
+    if (!prefetch) await logEvent({ type: "analysis_blocked", fixtureId });
     return { kind: "locked" };
   }
 
   try {
     const result = await getOrCreateAnalysis(fixtureId);
-    // History only exists for code holders.
-    await recordCodeView(
-      access?.code ?? null,
-      fixtureId,
-      result.payload,
-      result.ai,
-    );
-    await logEvent({
-      type: "analysis_view",
-      fixtureId,
-      code: access?.code ?? null,
-      isFree: !access,
-      detail: result.fromCache ? "cache" : "calculada",
-    });
+
+    if (!prefetch) {
+      // History only exists for code holders.
+      await recordCodeView(
+        access?.code ?? null,
+        fixtureId,
+        result.payload,
+        result.ai,
+      );
+      await logEvent({
+        type: "analysis_view",
+        fixtureId,
+        code: access?.code ?? null,
+        isFree: !access,
+        detail: result.fromCache ? "cache" : "calculada",
+      });
+    }
     return {
       kind: "ok",
       analysis: mapAnalysisToMatchAnalysis(result.payload, result.ai),

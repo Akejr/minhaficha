@@ -92,6 +92,28 @@ function readRequestContext(): {
 }
 
 /**
+ * True when this render is a Next.js router prefetch, not a real visit.
+ *
+ * Next sends `Next-Router-Prefetch: 1` when it warms a route in the
+ * background. Those renders must never be recorded: a prefetched fixture is
+ * one the visitor never actually opened, and counting it corrupts both the
+ * event log and the user's history.
+ *
+ * This is a safety net. The primary fix is `prefetch={false}` on links to
+ * expensive routes — see components/PopularMatchesSection.tsx — but this
+ * guard means re-enabling a prefetch somewhere can never silently start
+ * fabricating views again.
+ */
+export function isPrefetchRequest(): boolean {
+  try {
+    return headers().get("next-router-prefetch") === "1";
+  } catch {
+    // headers() throws outside a request scope.
+    return false;
+  }
+}
+
+/**
  * Record one event. Fire-and-forget: callers don't need to await, and a
  * failure here never propagates.
  */

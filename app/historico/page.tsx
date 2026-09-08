@@ -138,6 +138,9 @@ function HistoryRow({
   return (
     <Link
       href={`/match/${fixtureId}`}
+      // See PopularMatchesSection: prefetching an analysis would record a view
+      // the visitor never made.
+      prefetch={false}
       className="glass-card rounded-2xl p-4 hover:border-primary/30 transition-all group block active:scale-[0.99]"
     >
       <div className="flex items-center justify-between mb-3">

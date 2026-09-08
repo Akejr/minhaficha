@@ -271,6 +271,8 @@ function EventRowView({ e, highlight }: { e: AdminEvent; highlight: boolean }) {
         {e.fixtureId && (
           <Link
             href={`/match/${e.fixtureId}`}
+            // Never prefetch: it would create a view and pollute this feed.
+            prefetch={false}
             className="text-primary-container/90 hover:opacity-80"
           >
             {e.fixtureLabel ?? `jogo #${e.fixtureId}`}

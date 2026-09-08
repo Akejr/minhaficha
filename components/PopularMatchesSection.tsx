@@ -72,7 +72,11 @@ function PopularCard({ fixture }: CardProps) {
   return (
     <Link
       href={`/match/${fixture.fixtureId}`}
-      prefetch
+      // Prefetch MUST stay off here. /match/[id] is a dynamic route, so a
+      // prefetch server-renders the whole analysis in the background: it would
+      // log a view nobody made, write it into the visitor's history, and on a
+      // cache miss spend real API + OpenAI money for a page never opened.
+      prefetch={false}
       className="glass-card rounded-xl p-5 hover:border-primary/30 transition-colors group cursor-pointer relative overflow-hidden block press"
     >
       <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -291,6 +291,9 @@ function TopFixtures({
             <Link
               key={f.fixtureId}
               href={`/match/${f.fixtureId}`}
+              // Never prefetch an analysis from the panel — it would register
+              // a view and pollute the very numbers shown here.
+              prefetch={false}
               className="block px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors"
             >
               <div className="flex items-baseline justify-between gap-3">
