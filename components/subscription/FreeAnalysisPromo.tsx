@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { SubscribeButton } from "./SubscribeButton";
 import { formatCents } from "@/lib/plans";
 
@@ -18,6 +19,13 @@ import { formatCents } from "@/lib/plans";
  *
  * The price shown is the one the checkout charges — both read the same setting
  * server-side (lib/settings.ts).
+ *
+ * RENDERED THROUGH A PORTAL, and that is not optional. This component is used
+ * inside <main>, and any ancestor carrying a transform / filter / backdrop-
+ * filter becomes the containing block for `position: fixed` children — the
+ * overlay then anchors to that element instead of the viewport and ends up
+ * somewhere down the page. Portalling to <body> makes it immune to whatever
+ * the page around it is doing.
  */
 
 const SESSION_KEY = "apostai_promo_seen";
@@ -31,6 +39,10 @@ export function FreeAnalysisPromo({
   regularCents: number;
 }) {
   const [open, setOpen] = useState(false);
+  // Portals need a DOM, so nothing renders until we're mounted on the client.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let seen = false;
@@ -54,25 +66,33 @@ export function FreeAnalysisPromo({
     }
   }
 
-  // Let Escape close it, like any dialog.
+  // Escape closes, and the page behind must not scroll while it's open.
   useEffect(() => {
     if (!open) return;
+
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open]);
 
-  if (!open) return null;
+  if (!mounted || !open) return null;
 
   const discount = Math.max(0, regularCents - priceCents);
   const discountPct =
     regularCents > 0 ? Math.round((discount / regularCents) * 100) : 0;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-6 sm:items-center sm:pb-0"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="promo-title"
@@ -81,10 +101,10 @@ export function FreeAnalysisPromo({
       <button
         aria-label="Fechar"
         onClick={dismiss}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/75 backdrop-blur-sm"
       />
 
-      <div className="relative w-full max-w-[400px] glass-card rounded-2xl border border-primary-container/50 p-6 shadow-[0_0_40px_rgba(255,107,0,0.25)] anim-page-in">
+      <div className="relative w-full max-w-[380px] my-auto glass-card rounded-2xl border border-primary-container/50 p-6 shadow-[0_0_40px_rgba(255,107,0,0.25)]">
         <button
           onClick={dismiss}
           aria-label="Fechar"
@@ -111,7 +131,7 @@ export function FreeAnalysisPromo({
           não só os três do dia.
         </p>
 
-        <div className="flex items-baseline gap-2 mt-5">
+        <div className="flex items-baseline gap-2 mt-5 flex-wrap">
           <span className="font-display-lg text-[38px] leading-none text-on-surface">
             {formatCents(priceCents)}
           </span>
@@ -145,6 +165,7 @@ export function FreeAnalysisPromo({
           Pagamento único, não renova automaticamente.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

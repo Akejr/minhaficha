@@ -50,7 +50,15 @@
   /* Entrance animation used on page main content for a snappier feel
      between routes. Keeps GPU on translate/opacity (no layout work). */
   .anim-page-in {
-    animation: page-in 220ms ease-out both;
+    /* fill-mode is `backwards`, NOT `both`, on purpose.
+       `both` keeps the final keyframe applied forever, and that keyframe sets
+       a transform. An element with a transform becomes the containing block
+       for its `position: fixed` descendants — which silently breaks any fixed
+       overlay (modal, sheet, toast) rendered inside an animated container:
+       it anchors to this element instead of the viewport.
+       `backwards` still avoids a flash on the first frame, but leaves no
+       transform behind once the animation finishes. */
+    animation: page-in 220ms ease-out backwards;
   }
 
   @keyframes page-in {
