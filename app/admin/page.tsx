@@ -11,9 +11,11 @@ import {
   type AdminEvent,
   type TopFixture,
 } from "@/lib/admin/stats";
-import { formatCents } from "@/lib/plans";
+import { formatCents, PLAN_PRICE_CENTS } from "@/lib/plans";
+import { getPromo } from "@/lib/settings";
 import { formatCode } from "@/lib/access/format";
 import { eventLabel, toneClass } from "@/lib/admin/event-labels";
+import { PromoToggle } from "@/components/admin/PromoToggle";
 import { CreateCodeForm } from "@/components/admin/CreateCodeForm";
 import { RevokeCodeButton } from "@/components/admin/RevokeCodeButton";
 import type { AccessCodeRow } from "@/lib/supabase/types";
@@ -35,9 +37,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
   const period = isTopPeriod(searchParams.top) ? searchParams.top : "hoje";
 
-  const [data, perCode] = await Promise.all([
+  const [data, perCode, promo] = await Promise.all([
     loadAdminData({ topDays: topPeriodDays(period) }),
     analysesPerCode(),
+    getPromo(),
   ]);
   const { overview: o, codes, orders, events, setupError } = data;
 
@@ -82,6 +85,14 @@ export default async function AdminPage({ searchParams }: PageProps) {
         <Analyses o={o} />
         <TopFixtures fixtures={o.topFixtures} period={period} />
         <DailyChart daily={o.daily} />
+
+        <Section title="Promoção">
+          <PromoToggle
+            enabled={promo.enabled}
+            priceCents={promo.priceCents}
+            regularCents={PLAN_PRICE_CENTS}
+          />
+        </Section>
 
         <Section title="Códigos de acesso">
           <CreateCodeForm />

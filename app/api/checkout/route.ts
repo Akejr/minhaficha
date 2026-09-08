@@ -4,6 +4,7 @@ import { createCheckoutLink, InfinitePayError } from "@/lib/infinitepay/client";
 import { PLAN, PLAN_PRICE_CENTS } from "@/lib/plans";
 import { serviceRoleClient } from "@/lib/supabase/server";
 import { logEvent } from "@/lib/analytics/events";
+import { currentPrice } from "@/lib/settings";
 
 /**
  * POST /api/checkout
@@ -38,18 +39,23 @@ export async function POST(req: NextRequest) {
   const orderNsu = `apostai_${randomUUID()}`;
   const base = baseUrl(req);
 
+  // Price comes from the settings, so whatever the promo banner advertises is
+  // exactly what gets charged.
+  const { cents, promo } = await currentPrice();
+
   // This request IS the pay-button click, so it's the funnel's first step.
   await logEvent({
     type: "checkout_click",
     orderNsu,
-    amountCents: PLAN_PRICE_CENTS,
+    amountCents: cents,
+    detail: promo ? "promo 1º mês" : null,
   });
 
   try {
     const sb = serviceRoleClient();
     const { error: insertError } = await sb.from("checkout_orders").insert({
       order_nsu: orderNsu,
-      amount_cents: PLAN_PRICE_CENTS,
+      amount_cents: cents,
       status: "pending",
       paid_at: null,
       transaction_nsu: null,
@@ -63,8 +69,10 @@ export async function POST(req: NextRequest) {
       orderNsu,
       items: [
         {
-          description: PLAN.checkoutItemName,
-          price: PLAN_PRICE_CENTS,
+          description: promo
+            ? `${PLAN.checkoutItemName} (promoção 1º mês)`
+            : PLAN.checkoutItemName,
+          price: cents,
           quantity: 1,
         },
       ],
@@ -75,8 +83,9 @@ export async function POST(req: NextRequest) {
     await logEvent({
       type: "checkout_created",
       orderNsu,
-      amountCents: PLAN_PRICE_CENTS,
+      amountCents: cents,
       ok: true,
+      detail: promo ? "promo 1º mês" : null,
     });
 
     return NextResponse.json({ url, orderNsu });

@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { fetchPopularFixtures } from "@/lib/api-football/popular";
+import {
+  fetchPopularFixtures,
+  type PopularFixture,
+} from "@/lib/api-football/popular";
 import { teamLogoUrl } from "@/lib/team-logo";
 
 /**
@@ -32,7 +35,8 @@ export async function PopularMatchesSection() {
             Análise grátis
           </h2>
           <p className="font-body-md text-[13px] text-on-surface-variant mt-1">
-            Estes jogos são sempre gratuitos. Sem código, sem cadastro.
+            Três jogos liberados hoje, de tarde e de noite. Sem código, sem
+            cadastro.
           </p>
         </div>
         <span className="shrink-0 mt-1 font-label-md text-[10px] uppercase tracking-wider px-2 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
@@ -85,19 +89,25 @@ function PopularCard({ fixture }: CardProps) {
         </span>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-label-md text-label-md text-on-surface-variant px-2 py-1 rounded bg-surface-container border border-white/10 truncate">
-          {dateLabel}
-        </span>
-        <span className="font-mono-data text-mono-data text-on-surface-variant truncate ml-2">
+      <div className="flex justify-between items-center mb-4 gap-2">
+        <StateBadge fixture={fixture} dateLabel={dateLabel} />
+        <span className="font-mono-data text-mono-data text-on-surface-variant truncate">
           {fixture.league}
         </span>
       </div>
 
       <div className="flex flex-col gap-3">
-        <TeamRow name={fixture.home.name} logoUrl={fixture.home.logo} />
+        <TeamRow
+          name={fixture.home.name}
+          logoUrl={fixture.home.logo}
+          score={fixture.score?.home}
+        />
         <div className="h-px w-full bg-white/5" />
-        <TeamRow name={fixture.away.name} logoUrl={fixture.away.logo} />
+        <TeamRow
+          name={fixture.away.name}
+          logoUrl={fixture.away.logo}
+          score={fixture.score?.away}
+        />
       </div>
 
       <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-1.5">
@@ -105,14 +115,60 @@ function PopularCard({ fixture }: CardProps) {
           check_circle
         </span>
         <span className="font-label-md text-[11px] uppercase tracking-wider text-emerald-300">
-          Análise completa liberada
+          {fixture.state === "finished"
+            ? "Análise liberada · confira o que saiu"
+            : "Análise completa liberada"}
         </span>
       </div>
     </Link>
   );
 }
 
-function TeamRow({ name, logoUrl }: { name: string; logoUrl: string }) {
+/**
+ * Kickoff time, "Ao vivo" or "Encerrado".
+ *
+ * A finished fixture stays in the free set on purpose — the analysis is still
+ * worth reading, and seeing what actually happened is the cheapest possible
+ * demonstration that the numbers mean something.
+ */
+function StateBadge({
+  fixture,
+  dateLabel,
+}: {
+  fixture: PopularFixture;
+  dateLabel: string;
+}) {
+  if (fixture.state === "finished") {
+    return (
+      <span className="font-label-md text-label-md px-2 py-1 rounded bg-white/5 border border-white/15 text-on-surface-variant truncate">
+        Encerrado
+      </span>
+    );
+  }
+  if (fixture.state === "live") {
+    return (
+      <span className="font-label-md text-label-md px-2 py-1 rounded bg-error/10 border border-error/40 text-error truncate inline-flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
+        Ao vivo
+      </span>
+    );
+  }
+  return (
+    <span className="font-label-md text-label-md text-on-surface-variant px-2 py-1 rounded bg-surface-container border border-white/10 truncate">
+      {dateLabel}
+    </span>
+  );
+}
+
+function TeamRow({
+  name,
+  logoUrl,
+  score,
+}: {
+  name: string;
+  logoUrl: string;
+  score?: number;
+}) {
   const proxied = teamLogoUrl(logoUrl);
   return (
     <div className="flex items-center gap-3">
@@ -135,9 +191,14 @@ function TeamRow({ name, logoUrl }: { name: string; logoUrl: string }) {
           </span>
         </div>
       )}
-      <span className="font-headline-md text-[16px] text-on-surface truncate">
+      <span className="font-headline-md text-[16px] text-on-surface truncate flex-1">
         {name}
       </span>
+      {score != null && (
+        <span className="font-mono-data text-[18px] text-on-surface shrink-0">
+          {score}
+        </span>
+      )}
     </div>
   );
 }

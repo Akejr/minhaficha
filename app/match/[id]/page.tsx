@@ -7,6 +7,7 @@ import { AISummary } from "@/components/AISummary";
 import { BetsSection } from "@/components/BetsSection";
 import { MatchStats } from "@/components/MatchStats";
 import { SubscribeButton } from "@/components/subscription/SubscribeButton";
+import { FreeAnalysisPromo } from "@/components/subscription/FreeAnalysisPromo";
 import { mockAnalyses, type MatchAnalysis } from "@/lib/mock-analysis";
 import {
   getOrCreateAnalysis,
@@ -16,7 +17,8 @@ import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
 import { getCurrentAccess } from "@/lib/access/session";
 import { isFreeFixture } from "@/lib/free-fixtures";
 import { isPrefetchRequest, logEvent } from "@/lib/analytics/events";
-import { PLAN } from "@/lib/plans";
+import { getPromo } from "@/lib/settings";
+import { PLAN, PLAN_PRICE_CENTS } from "@/lib/plans";
 
 type PageProps = {
   params: { id: string };
@@ -90,7 +92,10 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
 }
 
 export default async function MatchAnalysisPage({ params }: PageProps) {
-  const result = await loadAnalysis(params.id);
+  const [result, promo] = await Promise.all([
+    loadAnalysis(params.id),
+    getPromo(),
+  ]);
   if (!result) notFound();
 
   return (
@@ -118,6 +123,14 @@ export default async function MatchAnalysisPage({ params }: PageProps) {
               awayTeam={result.analysis.awayTeam}
             />
             {result.isFree && <UpsellCard />}
+            {/* Promo only for free readers with no code, and only while the
+                owner has it switched on in /admin. */}
+            {result.isFree && promo.enabled && (
+              <FreeAnalysisPromo
+                priceCents={promo.priceCents}
+                regularCents={PLAN_PRICE_CENTS}
+              />
+            )}
           </div>
         )}
       </main>

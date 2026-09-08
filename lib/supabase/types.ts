@@ -29,6 +29,13 @@ export type AccessCodeRow = {
   revoked_at: string | null;
 };
 
+/** Runtime settings editable from /admin (see lib/settings.ts). */
+export type AppSettingRow = {
+  key: string;
+  value: unknown;
+  updated_at: string;
+};
+
 export type EventRow = {
   id: number;
   created_at: string;
@@ -119,6 +126,12 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<EventRow>;
+        Relationships: [];
+      };
+      app_settings: {
+        Row: AppSettingRow;
+        Insert: Omit<AppSettingRow, "updated_at"> & { updated_at?: string };
+        Update: Partial<AppSettingRow>;
         Relationships: [];
       };
     };
