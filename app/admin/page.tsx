@@ -1,12 +1,22 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { isAdmin } from "@/lib/access/session";
-import { analysesPerCode, loadAdminData, rate } from "@/lib/admin/stats";
+import {
+  analysesPerCode,
+  isTopPeriod,
+  loadAdminData,
+  rate,
+  topPeriodDays,
+  TOP_PERIODS,
+  type AdminEvent,
+  type TopFixture,
+} from "@/lib/admin/stats";
 import { formatCents } from "@/lib/plans";
 import { formatCode } from "@/lib/access/format";
+import { eventLabel, toneClass } from "@/lib/admin/event-labels";
 import { CreateCodeForm } from "@/components/admin/CreateCodeForm";
 import { RevokeCodeButton } from "@/components/admin/RevokeCodeButton";
-import type { AccessCodeRow, EventRow } from "@/lib/supabase/types";
+import type { AccessCodeRow } from "@/lib/supabase/types";
 
 /**
  * Owner dashboard.
@@ -16,11 +26,17 @@ import type { AccessCodeRow, EventRow } from "@/lib/supabase/types";
  * existence isn't confirmed.
  */
 
-export default async function AdminPage() {
+type PageProps = {
+  searchParams: { top?: string };
+};
+
+export default async function AdminPage({ searchParams }: PageProps) {
   if (!(await isAdmin())) notFound();
 
+  const period = isTopPeriod(searchParams.top) ? searchParams.top : "hoje";
+
   const [data, perCode] = await Promise.all([
-    loadAdminData(),
+    loadAdminData({ topDays: topPeriodDays(period) }),
     analysesPerCode(),
   ]);
   const { overview: o, codes, orders, events, setupError } = data;
@@ -60,9 +76,11 @@ export default async function AdminPage() {
           </div>
         )}
 
+        <EventsPreview events={events} />
         <Money o={o} />
         <Funnel o={o} />
         <Analyses o={o} />
+        <TopFixtures fixtures={o.topFixtures} period={period} />
         <DailyChart daily={o.daily} />
 
         <Section title="Códigos de acesso">
@@ -72,10 +90,6 @@ export default async function AdminPage() {
 
         <Section title="Pagamentos">
           <OrdersTable orders={orders} />
-        </Section>
-
-        <Section title="Eventos recentes">
-          <EventsTable events={events} />
         </Section>
 
         <p className="mt-8 font-body-md text-[10px] text-on-surface-variant/50 text-center">
@@ -228,29 +242,89 @@ function Analyses({ o }: { o: Awaited<ReturnType<typeof loadAdminData>>["overvie
         />
       </div>
 
-      {o.topFixtures.length > 0 && (
-        <div className="glass-card rounded-xl p-4 mt-3">
-          <p className="font-label-md text-[10px] uppercase tracking-wider text-on-surface-variant mb-2">
-            Jogos mais vistos
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {o.topFixtures.map((f) => (
-              <div
-                key={f.fixtureId}
-                className="flex items-center justify-between"
-              >
-                <Link
-                  href={`/match/${f.fixtureId}`}
-                  className="font-mono-data text-[12px] text-primary-container hover:opacity-80"
-                >
-                  #{f.fixtureId}
-                </Link>
-                <span className="font-mono-data text-[12px] text-on-surface-variant">
-                  {f.views} {f.views === 1 ? "vez" : "vezes"}
+    </Section>
+  );
+}
+
+/**
+ * Most viewed fixtures, with team names and a period selector.
+ *
+ * The period is a URL param rather than client state so the whole card is
+ * server-rendered — no extra JavaScript, and the choice survives a refresh.
+ */
+function TopFixtures({
+  fixtures,
+  period,
+}: {
+  fixtures: TopFixture[];
+  period: string;
+}) {
+  return (
+    <Section title="Jogos mais vistos">
+      <div className="flex gap-1.5 mb-3">
+        {TOP_PERIODS.map((p) => {
+          const active = p.id === period;
+          return (
+            <Link
+              key={p.id}
+              href={`/admin?top=${p.id}`}
+              scroll={false}
+              className={`rounded-full border px-3 py-1.5 font-label-md text-[11px] transition-colors ${
+                active
+                  ? "border-primary-container bg-primary-container/15 text-primary-container"
+                  : "border-white/10 bg-surface-container text-on-surface-variant hover:border-white/20"
+              }`}
+            >
+              {p.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {fixtures.length === 0 ? (
+        <p className="glass-card rounded-xl p-5 text-center font-body-md text-[13px] text-on-surface-variant">
+          Nenhuma análise vista neste período.
+        </p>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          {fixtures.map((f) => (
+            <Link
+              key={f.fixtureId}
+              href={`/match/${f.fixtureId}`}
+              className="block px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-headline-md text-[14px] text-on-surface truncate">
+                  {f.home && f.away
+                    ? `${f.home} × ${f.away}`
+                    : `Jogo #${f.fixtureId}`}
+                </span>
+                <span className="font-mono-data text-[13px] text-on-surface shrink-0">
+                  {f.views}
+                  <span className="text-on-surface-variant/60 text-[10px]">
+                    {" "}
+                    {f.views === 1 ? "vez" : "vezes"}
+                  </span>
                 </span>
               </div>
-            ))}
-          </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 font-body-md text-[10px] text-on-surface-variant/70">
+                {f.league && <span>{f.league}</span>}
+                {f.freeViews > 0 && (
+                  <span className="text-emerald-300/80">
+                    {f.freeViews} grátis
+                  </span>
+                )}
+                {f.views - f.freeViews > 0 && (
+                  <span>{f.views - f.freeViews} com código</span>
+                )}
+                {!f.home && (
+                  <span className="text-on-surface-variant/40">
+                    fora do cache
+                  </span>
+                )}
+              </div>
+            </Link>
+          ))}
         </div>
       )}
     </Section>
@@ -448,74 +522,76 @@ function OrdersTable({
   );
 }
 
-const EVENT_META: Record<string, { label: string; tone: string }> = {
-  checkout_click: { label: "clicou em pagar", tone: "text-primary-container" },
-  checkout_created: { label: "link gerado", tone: "text-on-surface-variant" },
-  checkout_failed: { label: "falha no link", tone: "text-error" },
-  payment_confirmed: { label: "pagamento confirmado", tone: "text-emerald-300" },
-  payment_unconfirmed: { label: "pagamento não confirmado", tone: "text-error" },
-  payment_underpaid: { label: "pagou menos", tone: "text-error" },
-  analysis_view: { label: "análise vista", tone: "text-on-surface" },
-  analysis_computed: { label: "análise calculada", tone: "text-primary-container" },
-  analysis_blocked: { label: "paywall exibido", tone: "text-on-surface-variant" },
-  login_success: { label: "login ok", tone: "text-emerald-300" },
-  login_failed: { label: "login falhou", tone: "text-error" },
-  logout: { label: "saiu", tone: "text-on-surface-variant" },
-  code_created: { label: "código criado", tone: "text-emerald-300" },
-  code_revoked: { label: "código revogado", tone: "text-error" },
-};
-
-function EventsTable({ events }: { events: EventRow[] }) {
-  if (events.length === 0) {
-    return (
-      <p className="font-body-md text-[13px] text-on-surface-variant">
-        Nada registrado ainda. Os eventos aparecem conforme o app é usado.
-      </p>
-    );
-  }
+/**
+ * Compact preview of the last few events, sitting at the top of the panel
+ * because it's the section checked most often. The full, self-updating stream
+ * lives at /admin/eventos.
+ */
+function EventsPreview({ events }: { events: AdminEvent[] }) {
+  const recent = events.slice(0, 6);
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      {events.map((e) => {
-        const meta = EVENT_META[e.type] ?? {
-          label: e.type,
-          tone: "text-on-surface-variant",
-        };
-        return (
-          <div
-            key={e.id}
-            className="px-4 py-2.5 border-b border-white/5 last:border-b-0"
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className={`font-body-md text-[12px] ${meta.tone}`}>
-                {meta.label}
-                {e.is_free === true && (
-                  <span className="ml-1.5 font-label-md text-[9px] uppercase tracking-wider text-emerald-300">
-                    grátis
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-headline-md text-[17px] text-on-surface">
+          Eventos recentes
+        </h2>
+        <Link
+          href="/admin/eventos"
+          className="flex items-center gap-1 font-label-md text-[11px] uppercase tracking-wider text-primary-container hover:opacity-80"
+        >
+          Ver ao vivo
+          <span className="material-symbols-outlined text-[16px]">
+            arrow_forward
+          </span>
+        </Link>
+      </div>
+
+      {recent.length === 0 ? (
+        <p className="glass-card rounded-xl p-5 text-center font-body-md text-[13px] text-on-surface-variant">
+          Nada registrado ainda. Os eventos aparecem conforme o app é usado.
+        </p>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          {recent.map((e) => {
+            const meta = eventLabel(e.type);
+            return (
+              <div
+                key={e.id}
+                className="px-4 py-2.5 border-b border-white/5 last:border-b-0"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={`font-body-md text-[12px] ${toneClass(meta.tone)}`}
+                  >
+                    {meta.label}
+                    {e.isFree === true && (
+                      <span className="ml-1.5 font-label-md text-[9px] uppercase tracking-wider text-emerald-300">
+                        grátis
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              <span className="font-mono-data text-[10px] text-on-surface-variant/60 shrink-0">
-                {fmtDateTime(e.created_at)}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 font-body-md text-[10px] text-on-surface-variant/70">
-              {e.code && <span>{formatCode(e.code)}</span>}
-              {e.fixture_id && <span>jogo #{e.fixture_id}</span>}
-              {e.amount_cents != null && (
-                <span>{formatCents(e.amount_cents)}</span>
-              )}
-              {e.detail && <span>{e.detail}</span>}
-              {e.ip_hash && (
-                <span className="text-on-surface-variant/40">
-                  visitante {e.ip_hash.slice(0, 6)}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+                  <span className="font-mono-data text-[10px] text-on-surface-variant/60 shrink-0">
+                    {fmtDateTime(e.createdAt)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 font-body-md text-[10px] text-on-surface-variant/70">
+                  {e.fixtureLabel && <span>{e.fixtureLabel}</span>}
+                  {!e.fixtureLabel && e.fixtureId && (
+                    <span>jogo #{e.fixtureId}</span>
+                  )}
+                  {e.code && <span>{formatCode(e.code)}</span>}
+                  {e.amountCents != null && (
+                    <span>{formatCents(e.amountCents)}</span>
+                  )}
+                  {e.detail && <span>{e.detail}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

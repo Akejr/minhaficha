@@ -129,7 +129,8 @@ export type Database = {
         Returns: number;
       };
       admin_overview: {
-        Args: Record<string, never>;
+        /** Window for the "jogos mais vistos" list. 0 = today. */
+        Args: { top_days?: number };
         Returns: unknown;
       };
     };
