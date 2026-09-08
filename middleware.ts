@@ -18,7 +18,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * lives in the page.
  */
 
-const PROTECTED_PREFIXES = ["/historico"];
+// /admin is listed only so a logged-out visitor is bounced to the login form
+// instead of seeing a 404. The real owner check lives in the page itself
+// (isAdmin), because the cookie alone proves nothing here.
+const PROTECTED_PREFIXES = ["/historico", "/admin"];
 const PUBLIC_AUTH_PREFIXES = ["/entrar"];
 
 const ACCESS_COOKIE = "apostai_code";
@@ -50,5 +53,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/historico/:path*", "/entrar"],
+  matcher: ["/historico/:path*", "/admin/:path*", "/entrar"],
 };

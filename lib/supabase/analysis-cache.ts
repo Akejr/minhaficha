@@ -1,6 +1,7 @@
 import { serviceRoleClient } from "./server";
 import { analyzeFixture } from "@/lib/betting";
 import { analyzeWithAI, type AnalysisOutput } from "@/lib/openai/analyze";
+import { logEvent } from "@/lib/analytics/events";
 import type { AnalysisPayload } from "@/lib/betting";
 
 /**
@@ -56,6 +57,12 @@ export async function getOrCreateAnalysis(
   }
 
   // Cache miss or stale future-fixture entry — recompute.
+  //
+  // This is the only branch that spends money (API-Football + OpenAI), so it
+  // gets its own event: /admin uses it to separate real cost from free
+  // cache hits.
+  await logEvent({ type: "analysis_computed", fixtureId });
+
   const payload = await analyzeFixture(fixtureId);
   const ai = await analyzeWithAI(payload);
 

@@ -15,6 +15,7 @@ import {
 import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
 import { getCurrentAccess } from "@/lib/access/session";
 import { isFreeFixture } from "@/lib/free-fixtures";
+import { logEvent } from "@/lib/analytics/events";
 import { PLAN } from "@/lib/plans";
 
 type PageProps = {
@@ -47,7 +48,10 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
     isFreeFixture(fixtureId),
   ]);
 
-  if (!access && !free) return { kind: "locked" };
+  if (!access && !free) {
+    await logEvent({ type: "analysis_blocked", fixtureId });
+    return { kind: "locked" };
+  }
 
   try {
     const result = await getOrCreateAnalysis(fixtureId);
@@ -58,6 +62,13 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
       result.payload,
       result.ai,
     );
+    await logEvent({
+      type: "analysis_view",
+      fixtureId,
+      code: access?.code ?? null,
+      isFree: !access,
+      detail: result.fromCache ? "cache" : "calculada",
+    });
     return {
       kind: "ok",
       analysis: mapAnalysisToMatchAnalysis(result.payload, result.ai),

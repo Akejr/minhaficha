@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createCheckoutLink, InfinitePayError } from "@/lib/infinitepay/client";
 import { PLAN, PLAN_PRICE_CENTS } from "@/lib/plans";
 import { serviceRoleClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/analytics/events";
 
 /**
  * POST /api/checkout
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
   const orderNsu = `apostai_${randomUUID()}`;
   const base = baseUrl(req);
 
+  // This request IS the pay-button click, so it's the funnel's first step.
+  await logEvent({
+    type: "checkout_click",
+    orderNsu,
+    amountCents: PLAN_PRICE_CENTS,
+  });
+
   try {
     const sb = serviceRoleClient();
     const { error: insertError } = await sb.from("checkout_orders").insert({
@@ -64,17 +72,36 @@ export async function POST(req: NextRequest) {
       webhookUrl: `${base}/api/webhooks/infinitepay`,
     });
 
+    await logEvent({
+      type: "checkout_created",
+      orderNsu,
+      amountCents: PLAN_PRICE_CENTS,
+      ok: true,
+    });
+
     return NextResponse.json({ url, orderNsu });
   } catch (err) {
     if (err instanceof InfinitePayError) {
       console.error(
         `[checkout] InfinitePay ${err.status} (${err.code ?? "-"}): ${err.message}`,
       );
+      await logEvent({
+        type: "checkout_failed",
+        orderNsu,
+        ok: false,
+        detail: `InfinitePay ${err.status}: ${err.message}`,
+      });
       // 502: the failure is upstream, not the customer's fault.
       return NextResponse.json({ error: err.message }, { status: 502 });
     }
     const message = err instanceof Error ? err.message : "Erro inesperado.";
     console.error("[checkout] failed:", err);
+    await logEvent({
+      type: "checkout_failed",
+      orderNsu,
+      ok: false,
+      detail: message,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

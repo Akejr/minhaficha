@@ -30,6 +30,22 @@ export const CODE_VALIDITY_DAYS = 30;
 // Re-exported so server-side callers have a single import site.
 export { CODE_LENGTH, formatCode, normalizeCode };
 
+/** What a code grants. Checkout always issues `monthly`. */
+export type CodeKind = "monthly" | "annual" | "lifetime";
+
+export const CODE_KINDS: Record<
+  CodeKind,
+  { label: string; days: number | null }
+> = {
+  monthly: { label: "Mensal (30 dias)", days: 30 },
+  annual: { label: "Anual (365 dias)", days: 365 },
+  lifetime: { label: "Vitalício (não expira)", days: null },
+};
+
+export function isCodeKind(v: unknown): v is CodeKind {
+  return v === "monthly" || v === "annual" || v === "lifetime";
+}
+
 /**
  * The owner's permanent code, read from the environment.
  *
@@ -138,6 +154,9 @@ export async function validateCode(raw: string): Promise<AccessInfo | null> {
     if (!data) return null;
     const row = data as AccessCodeRow;
 
+    // Revoked beats everything, including permanent codes.
+    if (row.revoked_at) return null;
+
     if (!row.is_permanent) {
       if (!row.expires_at) return null;
       if (new Date(row.expires_at).getTime() <= Date.now()) return null;
@@ -196,11 +215,15 @@ export async function issueCodeForOrder(args: {
       code,
       expires_at: expiresAt,
       is_permanent: false,
+      // Checkout only ever sells the 30-day plan.
+      kind: "monthly",
+      source: "checkout",
       order_nsu: args.orderNsu,
       transaction_nsu: args.transactionNsu ?? null,
       amount_cents: args.amountCents ?? null,
       note: null,
       last_used_at: null,
+      revoked_at: null,
     });
     if (!error) return code;
 
@@ -221,3 +244,58 @@ export async function issueCodeForOrder(args: {
   );
 }
 
+/**
+ * Mint a code by hand from the admin panel.
+ *
+ * Unlike `issueCodeForOrder` there is no order to be idempotent against, so
+ * every call produces a new code. `lifetime` stores expires_at = NULL with
+ * is_permanent = true; the others get a deadline.
+ */
+export async function createAdminCode(args: {
+  kind: CodeKind;
+  note?: string | null;
+}): Promise<{ code: string; expiresAt: string | null }> {
+  const sb = serviceRoleClient();
+  const spec = CODE_KINDS[args.kind];
+  const expiresAt =
+    spec.days === null
+      ? null
+      : new Date(Date.now() + spec.days * 24 * 60 * 60 * 1000).toISOString();
+
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateCode();
+    const { error } = await sb.from("access_codes").insert({
+      code,
+      expires_at: expiresAt,
+      is_permanent: args.kind === "lifetime",
+      kind: args.kind,
+      source: "admin",
+      order_nsu: null,
+      transaction_nsu: null,
+      amount_cents: null,
+      note: args.note?.trim() || null,
+      last_used_at: null,
+      revoked_at: null,
+    });
+    if (!error) return { code, expiresAt };
+    lastError = error;
+  }
+
+  throw new Error(
+    `Não foi possível criar o código: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
+}
+
+/** Revoke a code without deleting it, so its history stays attached. */
+export async function revokeCode(raw: string): Promise<boolean> {
+  const code = normalizeCode(raw);
+  if (!code) return false;
+  const { error } = await serviceRoleClient()
+    .from("access_codes")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("code", code);
+  return !error;
+}

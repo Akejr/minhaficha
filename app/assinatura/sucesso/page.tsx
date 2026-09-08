@@ -5,6 +5,7 @@ import { CodeReveal } from "@/components/subscription/CodeReveal";
 import { issueCodeForOrder, CODE_VALIDITY_DAYS } from "@/lib/access/codes";
 import { amountCovers, checkPayment } from "@/lib/infinitepay/client";
 import { serviceRoleClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/analytics/events";
 
 /**
  * Landing page after the InfinitePay checkout.
@@ -107,6 +108,15 @@ async function resolveOutcome(sp: PageProps["searchParams"]): Promise<Outcome> {
       .select("expires_at")
       .eq("code", code)
       .maybeSingle();
+
+    await logEvent({
+      type: "payment_confirmed",
+      orderNsu,
+      code,
+      amountCents: check.paidAmountCents ?? order.amount_cents,
+      ok: true,
+      detail: `tela de sucesso · ${check.captureMethod ?? "?"}`,
+    });
 
     return { kind: "ok", code, expiresAt: codeRow?.expires_at ?? null };
   } catch (err) {

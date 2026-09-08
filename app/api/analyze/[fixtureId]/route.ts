@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/analysis-cache";
 import { getCurrentAccess } from "@/lib/access/session";
 import { isFreeFixture } from "@/lib/free-fixtures";
+import { logEvent } from "@/lib/analytics/events";
 
 /**
  * GET /api/analyze/:fixtureId
@@ -35,6 +36,7 @@ export async function GET(
   ]);
 
   if (!access && !free) {
+    await logEvent({ type: "analysis_blocked", fixtureId, detail: "api" });
     return NextResponse.json(
       {
         error:
@@ -55,6 +57,13 @@ export async function GET(
       result.payload,
       result.ai,
     );
+    await logEvent({
+      type: "analysis_view",
+      fixtureId,
+      code: access?.code ?? null,
+      isFree: !access,
+      detail: result.fromCache ? "cache · api" : "calculada · api",
+    });
 
     return NextResponse.json({
       payload: result.payload,

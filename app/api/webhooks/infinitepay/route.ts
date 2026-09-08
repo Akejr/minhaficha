@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { issueCodeForOrder } from "@/lib/access/codes";
 import { amountCovers, checkPayment } from "@/lib/infinitepay/client";
 import { serviceRoleClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/analytics/events";
 
 /**
  * POST /api/webhooks/infinitepay
@@ -112,10 +113,27 @@ export async function POST(req: NextRequest) {
         console.warn(
           `[webhook] order ${orderNsu} not confirmed as paid — refusing to issue code`,
         );
+        await logEvent({
+          type: "payment_unconfirmed",
+          orderNsu,
+          ok: false,
+          detail: "webhook chegou mas o pagamento não estava liquidado",
+          captureRequest: false,
+        });
         // 400 so InfinitePay retries: the payment may settle moments later.
         return NextResponse.json({ error: "not confirmed" }, { status: 400 });
       }
       if (!amountCovers(check, order.amount_cents)) {
+        await logEvent({
+          type: "payment_underpaid",
+          orderNsu,
+          amountCents: check.paidAmountCents ?? check.amountCents,
+          ok: false,
+          detail: `esperado ${order.amount_cents}, liquidado ${
+            check.paidAmountCents ?? check.amountCents
+          }`,
+          captureRequest: false,
+        });
         // Underpaid: do NOT retry, and do NOT grant access.
         console.error(
           `[webhook] order ${orderNsu} underpaid: settled ${
@@ -147,6 +165,15 @@ export async function POST(req: NextRequest) {
     if (updateError) throw new Error(updateError.message);
 
     console.log(`[webhook] order ${orderNsu} paid — code issued`);
+    await logEvent({
+      type: "payment_confirmed",
+      orderNsu,
+      code,
+      amountCents: amountCents ?? order.amount_cents,
+      ok: true,
+      detail: `webhook · ${captureMethod ?? "?"}`,
+      captureRequest: false,
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(`[webhook] order ${orderNsu} failed:`, err);

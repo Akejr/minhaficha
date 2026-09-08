@@ -21,6 +21,29 @@ export type AccessCodeRow = {
   amount_cents: number | null;
   note: string | null;
   last_used_at: string | null;
+  /** What the code grants. Checkout always issues 'monthly'. */
+  kind: "monthly" | "annual" | "lifetime";
+  /** Where it came from. */
+  source: "checkout" | "admin";
+  /** Set when revoked; revoked codes never validate, permanent or not. */
+  revoked_at: string | null;
+};
+
+export type EventRow = {
+  id: number;
+  created_at: string;
+  type: string;
+  code: string | null;
+  fixture_id: number | null;
+  order_nsu: string | null;
+  amount_cents: number | null;
+  is_free: boolean | null;
+  ok: boolean | null;
+  detail: string | null;
+  path: string | null;
+  ip_hash: string | null;
+  user_agent: string | null;
+  meta: unknown;
 };
 
 export type CheckoutOrderStatus = "pending" | "paid";
@@ -89,12 +112,25 @@ export type Database = {
         Update: Partial<CodeAnalysisRow>;
         Relationships: [];
       };
+      events: {
+        Row: EventRow;
+        Insert: Omit<EventRow, "id" | "created_at"> & {
+          id?: number;
+          created_at?: string;
+        };
+        Update: Partial<EventRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       purge_expired_codes: {
         Args: { grace_days?: number };
         Returns: number;
+      };
+      admin_overview: {
+        Args: Record<string, never>;
+        Returns: unknown;
       };
     };
     Enums: Record<string, never>;

@@ -15,6 +15,8 @@ type Props = {
     expiresAt: string | null;
     daysLeft: number | null;
   } | null;
+  /** True only for the master code — shows the link to /admin. */
+  isOwner?: boolean;
 };
 
 /**
@@ -24,7 +26,7 @@ type Props = {
  * how long it lasts, and the buttons to renew or sign out. Visitors without a
  * code see the sales pitch instead.
  */
-export function ProfileView({ access }: Props) {
+export function ProfileView({ access, isOwner = false }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -172,6 +174,25 @@ export function ProfileView({ access }: Props) {
         Guarde bem o seu código: ele é a única forma de entrar. Não há
         recuperação por email ou senha.
       </p>
+
+      {isOwner && (
+        <Link
+          href="/admin"
+          className="glass-card rounded-2xl p-4 flex items-center justify-between hover:border-primary-container/40 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-container text-[20px]">
+              dashboard
+            </span>
+            <span className="font-headline-md text-[14px] text-on-surface">
+              Painel de controle
+            </span>
+          </span>
+          <span className="material-symbols-outlined text-on-surface-variant text-[18px]">
+            arrow_forward
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

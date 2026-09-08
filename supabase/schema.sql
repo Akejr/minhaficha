@@ -200,3 +200,16 @@ $$;
 
 revoke all on function public.purge_expired_codes(int) from public;
 grant execute on function public.purge_expired_codes(int) to service_role;
+
+-- =========================================================================
+-- 7. Admin panel objects
+--
+-- For a FRESH install, also run supabase/migration-002-admin-events.sql.
+-- It is additive and idempotent, and contains:
+--   - access_codes.kind / .source / .revoked_at
+--   - the events table (audit log behind /admin)
+--   - the admin_overview() aggregate function
+--
+-- Kept in a separate file so an existing database can be upgraded without
+-- re-running everything above.
+-- =========================================================================

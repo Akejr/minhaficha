@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { validateCode, type AccessInfo } from "./codes";
+import { isMasterCode, validateCode, type AccessInfo } from "./codes";
 
 /**
  * Session handling for the access-code model.
@@ -48,3 +48,16 @@ export const getCurrentAccess = cache(async (): Promise<AccessInfo | null> => {
 export async function hasAccess(): Promise<boolean> {
   return (await getCurrentAccess()) !== null;
 }
+
+/**
+ * Is the current visitor the owner?
+ *
+ * Deliberately NOT "is the code permanent": lifetime codes sold or granted to
+ * customers are permanent too, and they must not reach /admin. Only the code
+ * configured in MASTER_ACCESS_CODE counts.
+ */
+export const isAdmin = cache(async (): Promise<boolean> => {
+  const access = await getCurrentAccess();
+  if (!access) return false;
+  return isMasterCode(access.code);
+});

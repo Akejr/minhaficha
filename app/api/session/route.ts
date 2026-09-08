@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { normalizeCode, validateCode, touchCode } from "@/lib/access/codes";
 import { ACCESS_COOKIE, accessCookieOptions } from "@/lib/access/session";
+import { logEvent, maskCode } from "@/lib/analytics/events";
 
 /**
  * POST /api/session  — log in with an access code
@@ -34,6 +35,12 @@ export async function POST(req: NextRequest) {
 
   const access = await validateCode(normalized);
   if (!access) {
+    // Log the attempt masked — enough to spot a typo, never enough to reuse.
+    await logEvent({
+      type: "login_failed",
+      ok: false,
+      detail: maskCode(normalized),
+    });
     // Deliberately vague: don't reveal whether a code exists but expired
     // versus never existed.
     return NextResponse.json(
@@ -43,6 +50,12 @@ export async function POST(req: NextRequest) {
   }
 
   void touchCode(access.code);
+  await logEvent({
+    type: "login_success",
+    code: access.code,
+    ok: true,
+    detail: access.isPermanent ? "vitalício" : `${access.daysLeft} dias`,
+  });
 
   const res = NextResponse.json({
     ok: true,
@@ -56,6 +69,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE() {
+  await logEvent({ type: "logout" });
   const res = NextResponse.json({ ok: true });
   res.cookies.set(ACCESS_COOKIE, "", {
     ...accessCookieOptions(),
