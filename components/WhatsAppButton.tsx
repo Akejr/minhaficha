@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { whatsappLink } from "@/lib/whatsapp";
 
 /**
  * Floating WhatsApp support button.
@@ -22,8 +23,7 @@ import { usePathname } from "next/navigation";
  * support knows which game the question is about.
  */
 
-/** Support number in international format: +55 (19) 99925-4735 */
-const WHATSAPP_NUMBER = "5519999254735";
+
 
 function buildMessage(pathname: string): string {
   const base = "Olá! Tenho uma dúvida sobre o ApostAI";
@@ -39,9 +39,7 @@ function buildMessage(pathname: string): string {
 
 export function WhatsAppButton() {
   const pathname = usePathname() || "/";
-  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    buildMessage(pathname),
-  )}`;
+  const href = whatsappLink(buildMessage(pathname));
 
   return (
     <div

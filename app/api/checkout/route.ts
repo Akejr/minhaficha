@@ -27,12 +27,42 @@ import { currentPrice } from "@/lib/settings";
  * development — the webhook simply won't arrive and the success page falls
  * back to payment_check. Set NEXT_PUBLIC_SITE_URL in production.
  */
+const LOCAL_HOST_RE = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i;
+
 function baseUrl(req: NextRequest): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("host") ?? "localhost:8080";
-  return `${proto}://${host}`;
+  const requestHost = req.headers.get("host") ?? "";
+  const fromRequest = () => {
+    const proto = req.headers.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${requestHost || "localhost:8080"}`;
+  };
+
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (!configured) return fromRequest();
+
+  let configuredHost = "";
+  try {
+    configuredHost = new URL(configured).host;
+  } catch {
+    console.warn(`[checkout] NEXT_PUBLIC_SITE_URL inválida: ${configured}`);
+    return fromRequest();
+  }
+
+  // A localhost value is worthless for InfinitePay callbacks: the customer is
+  // redirected to their OWN machine and the webhook never arrives, so the
+  // payment succeeds and no code is ever issued.
+  //
+  // This is not hypothetical — it happened in production with a paying
+  // customer. So when the variable points at localhost but the request came
+  // from a real host, we ignore the variable and trust the request.
+  if (LOCAL_HOST_RE.test(configuredHost) && !LOCAL_HOST_RE.test(requestHost)) {
+    console.error(
+      `[checkout] NEXT_PUBLIC_SITE_URL aponta para "${configuredHost}" mas a requisição veio de "${requestHost}". ` +
+        `Usando o host da requisição para redirect/webhook. CORRIJA a variável de ambiente.`,
+    );
+    return fromRequest();
+  }
+
+  return configured.replace(/\/$/, "");
 }
 
 export async function POST(req: NextRequest) {

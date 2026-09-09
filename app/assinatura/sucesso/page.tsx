@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { CodeReveal } from "@/components/subscription/CodeReveal";
+import { whatsappLink } from "@/lib/whatsapp";
 import { issueCodeForOrder, CODE_VALIDITY_DAYS } from "@/lib/access/codes";
 import { amountCovers, checkPayment } from "@/lib/infinitepay/client";
 import { serviceRoleClient } from "@/lib/supabase/server";
@@ -183,8 +184,21 @@ function PendingCard({ orderNsu }: { orderNsu: string }) {
         Verificar de novo
       </Link>
 
+      {/* Escape hatch. Someone who paid and can't get a code must never be
+          left with nothing to click — that stranded a real customer once. */}
+      <a
+        href={whatsappLink(
+          `Olá! Paguei a assinatura do ApostAI e não recebi o código. Meu pedido: ${orderNsu}`,
+        )}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 w-full rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-label-md text-label-md py-3.5 flex items-center justify-center gap-2 hover:bg-emerald-500/15 transition-colors"
+      >
+        Já paguei — falar no WhatsApp
+      </a>
+
       <p className="mt-4 font-body-md text-[11px] text-on-surface-variant/60 break-all">
-        Pedido: {orderNsu || "—"}
+        Guarde este número do pedido: {orderNsu || "—"}
       </p>
     </section>
   );
@@ -217,6 +231,17 @@ function MissingCard() {
           arrow_forward
         </span>
       </Link>
+
+      <a
+        href={whatsappLink(
+          "Olá! Paguei a assinatura do ApostAI e não recebi o código de acesso.",
+        )}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 font-label-md text-label-md text-emerald-300 hover:opacity-80 transition-opacity"
+      >
+        Paguei e não recebi o código
+      </a>
       <Link
         href="/"
         className="mt-3 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
