@@ -35,7 +35,7 @@ export async function PopularMatchesSection() {
             Análise grátis
           </h2>
           <p className="font-body-md text-[13px] text-on-surface-variant mt-1">
-            Três jogos liberados hoje, de tarde e de noite. Sem código, sem
+            Três jogos com a análise completa liberada. Sem código, sem
             cadastro.
           </p>
         </div>
@@ -64,15 +64,6 @@ type CardProps = {
 };
 
 function PopularCard({ fixture }: CardProps) {
-  const dt = new Date(fixture.kickoff);
-  const dateLabel = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(dt);
-
   return (
     <Link
       href={`/match/${fixture.fixtureId}`}
@@ -90,7 +81,7 @@ function PopularCard({ fixture }: CardProps) {
       </div>
 
       <div className="flex justify-between items-center mb-4 gap-2">
-        <StateBadge fixture={fixture} dateLabel={dateLabel} />
+        <StateBadge fixture={fixture} />
         <span className="font-mono-data text-mono-data text-on-surface-variant truncate">
           {fixture.league}
         </span>
@@ -125,19 +116,13 @@ function PopularCard({ fixture }: CardProps) {
 }
 
 /**
- * Kickoff time, "Ao vivo" or "Encerrado".
+ * Kickoff moment, "Ao vivo" or "Encerrado".
  *
- * A finished fixture stays in the free set on purpose — the analysis is still
- * worth reading, and seeing what actually happened is the cheapest possible
- * demonstration that the numbers mean something.
+ * "Encerrado" is still handled although finished fixtures are filtered out of
+ * the shown set: the list is cached for five minutes, so a match can end and
+ * linger briefly until the next refresh.
  */
-function StateBadge({
-  fixture,
-  dateLabel,
-}: {
-  fixture: PopularFixture;
-  dateLabel: string;
-}) {
+function StateBadge({ fixture }: { fixture: PopularFixture }) {
   if (fixture.state === "finished") {
     return (
       <span className="font-label-md text-label-md px-2 py-1 rounded bg-white/5 border border-white/15 text-on-surface-variant truncate">
@@ -155,7 +140,7 @@ function StateBadge({
   }
   return (
     <span className="font-label-md text-label-md text-on-surface-variant px-2 py-1 rounded bg-surface-container border border-white/10 truncate">
-      {dateLabel}
+      {fixture.whenLabel}
     </span>
   );
 }

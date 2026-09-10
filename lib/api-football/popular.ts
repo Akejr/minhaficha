@@ -3,26 +3,39 @@ import { leaguePriority } from "./league-priority";
 import type { ApiFixture } from "./types";
 
 /**
- * The free tier: three fixtures picked once per day and held for the whole day.
+ * The free tier: three fixtures, always ones there is still something to watch.
  *
- * Why it works this way
- * --------------------
- * The previous version asked for the "next 2" fixtures per league and dropped
- * anything already kicked off. That made the free set rotate all day long, and
- * worse, a match lost its free access the moment it started — a visitor
- * reading an analysis could have it locked mid-game.
+ * Two different sets live in this file, and keeping them apart is the whole
+ * point:
  *
- * Now the selection is:
+ *   fetchPopularFixtures()   → what we SHOW. Finished matches are dropped, and
+ *                              once today is exhausted it rolls over to
+ *                              tomorrow, so the strip is never a list of games
+ *                              that already ended.
+ *
+ *   fetchFreeAccessIds()     → what stays UNLOCKED. This is the shown set plus
+ *                              the three that were on display earlier today,
+ *                              before they ended.
+ *
+ * Why the second one exists: a visitor reading an analysis when the final
+ * whistle blows must not have it locked under them. Dropping a match from the
+ * display is a merchandising decision; revoking access mid-read is a bug, and
+ * we had exactly that bug before when the free set rotated on kickoff.
+ *
+ * Recovering "the three from earlier today" is possible because selection is
+ * deterministic: same pool, same order, same result. Running the picker over
+ * today's full pool (finished included) reproduces the choice the visitor saw,
+ * so the grace is exactly three fixtures — not a free pass to every match that
+ * ended today.
+ *
+ * The selection itself is:
  *   - scoped to TODAY in São Paulo time;
- *   - deterministic, so the same day always yields the same three fixtures
- *     (no randomness, ordering fully defined);
- *   - spread across the day — two in the afternoon and one at night, so
- *     someone opening the app at 15h and again at 22h finds something useful;
- *   - kept in place after the final whistle, flagged as finished, instead of
- *     disappearing.
+ *   - deterministic — no randomness, ordering fully defined;
+ *   - spread across the day, two in the afternoon and one at night, so someone
+ *     opening the app at 15h and again at 22h finds something useful.
  *
- * It also costs less: one API call per refresh window instead of one per
- * league (7 → 1).
+ * Cost: one API call per refresh window instead of one per league (7 → 1).
+ * Both exported functions share that cached call.
  */
 
 const FEATURED_LEAGUE_IDS = new Set([
@@ -64,6 +77,12 @@ export type PopularFixture = {
   state: FixtureState;
   /** Ready to render: "21:30", "Ao vivo" or "Encerrado". */
   stateLabel: string;
+  /**
+   * Same idea but day-aware: "Hoje, 21:30", "Amanhã, 16:00", "Ao vivo",
+   * "Encerrado". Needed since the free set rolls over to tomorrow once today's
+   * matches are done — "Hoje" would then be a lie.
+   */
+  whenLabel: string;
   /** Final or running score. null before kickoff. */
   score: { home: number; away: number } | null;
   home: { id: number; name: string; logo: string };
@@ -109,6 +128,18 @@ function timeLabel(f: ApiFixture): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/** "Hoje", "Amanhã", or a short date for anything further out. */
+function dayLabel(f: ApiFixture): string {
+  const day = partsInTz(new Date(f.fixture.timestamp * 1000)).date;
+  if (day === localDate(0)) return "Hoje";
+  if (day === localDate(1)) return "Amanhã";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ,
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(f.fixture.timestamp * 1000));
+}
+
 function toState(f: ApiFixture): FixtureState {
   const s = f.fixture.status.short;
   if (FINISHED.has(s)) return "finished";
@@ -132,6 +163,12 @@ function toPopular(f: ApiFixture): PopularFixture {
         : state === "live"
           ? "Ao vivo"
           : timeLabel(f),
+    whenLabel:
+      state === "finished"
+        ? "Encerrado"
+        : state === "live"
+          ? "Ao vivo"
+          : `${dayLabel(f)}, ${timeLabel(f)}`,
     score:
       hasScore && state !== "scheduled"
         ? { home: f.goals.home as number, away: f.goals.away as number }
@@ -206,26 +243,38 @@ function pickSpread(pool: ApiFixture[], n: number): ApiFixture[] {
   return chosen;
 }
 
+const hourOf = (f: ApiFixture) =>
+  partsInTz(new Date(f.fixture.timestamp * 1000)).hour;
+
+/** Add up to `n` fixtures from `pool` that aren't already chosen. */
+function topUp(
+  chosen: ApiFixture[],
+  pool: ApiFixture[],
+  n: number,
+): ApiFixture[] {
+  if (n <= 0) return [];
+  const ids = new Set(chosen.map((f) => f.fixture.id));
+  return pickSpread(
+    pool.filter((f) => !ids.has(f.fixture.id)).sort(byRelevance),
+    n,
+  );
+}
+
 /**
- * Today's free fixtures: two in the afternoon, one at night.
+ * The deterministic pick: two in the afternoon, one at night, topped up from
+ * whatever else is in the pool.
  *
- * Falls back gracefully — if today is thin (international break, midweek gap)
- * it fills the remaining slots from the rest of today, then from tomorrow, so
- * the free tier is never empty.
+ * Pure and stable — the same pool always yields the same three. That property
+ * is what lets `fetchFreeAccessIds` reconstruct what was on display earlier.
  */
-export async function fetchPopularFixtures(): Promise<PopularFixture[]> {
-  const today = await fixturesOn(localDate(0));
-
-  const hourOf = (f: ApiFixture) =>
-    partsInTz(new Date(f.fixture.timestamp * 1000)).hour;
-
-  const afternoon = today
+function selectThree(pool: ApiFixture[]): ApiFixture[] {
+  const afternoon = pool
     .filter((f) => hourOf(f) < NIGHT_STARTS_AT_HOUR)
     .sort(byRelevance);
 
   // For the night slot we want it genuinely late, so order by kickoff
   // descending first and only then by league relevance.
-  const night = today
+  const night = pool
     .filter((f) => hourOf(f) >= NIGHT_STARTS_AT_HOUR)
     .sort((a, b) => {
       if (a.fixture.timestamp !== b.fixture.timestamp) {
@@ -234,33 +283,59 @@ export async function fetchPopularFixtures(): Promise<PopularFixture[]> {
       return byRelevance(a, b);
     });
 
-  const chosen: ApiFixture[] = [
-    ...pickSpread(afternoon, 2),
-    ...pickSpread(night, 1),
-  ];
+  const chosen = [...pickSpread(afternoon, 2), ...pickSpread(night, 1)];
+  chosen.push(...topUp(chosen, pool, FREE_FIXTURES_LIMIT - chosen.length));
+  return chosen.slice(0, FREE_FIXTURES_LIMIT);
+}
 
-  // Top up from anything else today, then from tomorrow.
-  if (chosen.length < FREE_FIXTURES_LIMIT) {
-    const ids = new Set(chosen.map((f) => f.fixture.id));
-    const rest = today.filter((f) => !ids.has(f.fixture.id)).sort(byRelevance);
-    chosen.push(...pickSpread(rest, FREE_FIXTURES_LIMIT - chosen.length));
-  }
+/**
+ * The fixtures to SHOW: three that haven't ended yet.
+ *
+ * A finished match is dropped, and when today runs out — every match played, or
+ * a thin midweek card — the remaining slots come from tomorrow. So late at
+ * night the strip naturally becomes tomorrow's games instead of a row of final
+ * scores.
+ */
+export async function fetchPopularFixtures(): Promise<PopularFixture[]> {
+  const today = await fixturesOn(localDate(0));
+
+  // Scheduled and in-play only. A match being played is the most compelling
+  // thing we can show, so "live" stays.
+  const pending = today.filter((f) => toState(f) !== "finished");
+
+  const chosen = selectThree(pending);
 
   if (chosen.length < FREE_FIXTURES_LIMIT) {
-    const tomorrow = (await fixturesOn(localDate(1))).sort(byRelevance);
-    const ids = new Set(chosen.map((f) => f.fixture.id));
+    const tomorrow = await fixturesOn(localDate(1));
     chosen.push(
-      ...pickSpread(
-        tomorrow.filter((f) => !ids.has(f.fixture.id)),
-        FREE_FIXTURES_LIMIT - chosen.length,
-      ),
+      ...topUp(chosen, tomorrow, FREE_FIXTURES_LIMIT - chosen.length),
     );
   }
 
-  // Display order: chronological, so a finished match sits above the one
-  // still to come.
   return chosen
     .slice(0, FREE_FIXTURES_LIMIT)
     .sort((a, b) => a.fixture.timestamp - b.fixture.timestamp)
     .map(toPopular);
+}
+
+/**
+ * The fixtures that stay UNLOCKED: everything on display, plus the three that
+ * were on display earlier today.
+ *
+ * The second half is the grace period. Without it, a match ending would revoke
+ * access from whoever was reading it, and anyone who opened it earlier would
+ * find it locked when they came back — which is worse than never having shown
+ * it, because they already saw it was free.
+ */
+export async function fetchFreeAccessIds(): Promise<Set<number>> {
+  const [shown, today] = await Promise.all([
+    fetchPopularFixtures(),
+    fixturesOn(localDate(0)),
+  ]);
+
+  const ids = new Set(shown.map((f) => f.fixtureId));
+  // Re-run the picker over today's FULL pool to reproduce what was displayed
+  // before those matches ended.
+  for (const f of selectThree(today)) ids.add(f.fixture.id);
+  return ids;
 }
