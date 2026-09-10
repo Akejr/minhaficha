@@ -5,6 +5,12 @@ import { PLAN, PLAN_PRICE_CENTS } from "@/lib/plans";
 import { serviceRoleClient } from "@/lib/supabase/server";
 import { logEvent } from "@/lib/analytics/events";
 import { currentPrice } from "@/lib/settings";
+import { baseUrlFromRequest } from "@/lib/site-url";
+import {
+  attributionToOrderColumns,
+  hasAttribution,
+  sanitizeAttribution,
+} from "@/lib/tracking/attribution";
 
 /**
  * POST /api/checkout
@@ -21,53 +27,30 @@ import { currentPrice } from "@/lib/settings";
  */
 
 /**
- * Absolute base URL for redirect/webhook callbacks.
+ * Campaign parameters the browser collected on the visitor's first page view.
  *
- * InfinitePay calls these from the outside, so localhost is useless in
- * development — the webhook simply won't arrive and the success page falls
- * back to payment_check. Set NEXT_PUBLIC_SITE_URL in production.
+ * Optional and untrusted: the body is fully caller-controlled, so it is passed
+ * through `sanitizeAttribution` (known keys only, truncated, control
+ * characters removed) before it goes anywhere near the database. A malformed
+ * or absent body must never stop someone from buying, so every failure here
+ * degrades to "no attribution".
  */
-const LOCAL_HOST_RE = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i;
-
-function baseUrl(req: NextRequest): string {
-  const requestHost = req.headers.get("host") ?? "";
-  const fromRequest = () => {
-    const proto = req.headers.get("x-forwarded-proto") ?? "https";
-    return `${proto}://${requestHost || "localhost:8080"}`;
-  };
-
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!configured) return fromRequest();
-
-  let configuredHost = "";
+async function readAttribution(req: NextRequest) {
   try {
-    configuredHost = new URL(configured).host;
-  } catch {
-    console.warn(`[checkout] NEXT_PUBLIC_SITE_URL inválida: ${configured}`);
-    return fromRequest();
-  }
-
-  // A localhost value is worthless for InfinitePay callbacks: the customer is
-  // redirected to their OWN machine and the webhook never arrives, so the
-  // payment succeeds and no code is ever issued.
-  //
-  // This is not hypothetical — it happened in production with a paying
-  // customer. So when the variable points at localhost but the request came
-  // from a real host, we ignore the variable and trust the request.
-  if (LOCAL_HOST_RE.test(configuredHost) && !LOCAL_HOST_RE.test(requestHost)) {
-    console.error(
-      `[checkout] NEXT_PUBLIC_SITE_URL aponta para "${configuredHost}" mas a requisição veio de "${requestHost}". ` +
-        `Usando o host da requisição para redirect/webhook. CORRIJA a variável de ambiente.`,
+    const body = (await req.json()) as unknown;
+    if (!body || typeof body !== "object") return {};
+    return sanitizeAttribution(
+      (body as { attribution?: unknown }).attribution ?? body,
     );
-    return fromRequest();
+  } catch {
+    return {};
   }
-
-  return configured.replace(/\/$/, "");
 }
 
 export async function POST(req: NextRequest) {
   const orderNsu = `apostai_${randomUUID()}`;
-  const base = baseUrl(req);
+  const base = baseUrlFromRequest(req);
+  const attribution = await readAttribution(req);
 
   // Price comes from the settings, so whatever the promo banner advertises is
   // exactly what gets charged.
@@ -92,6 +75,10 @@ export async function POST(req: NextRequest) {
       capture_method: null,
       receipt_url: null,
       access_code: null,
+      // Stored on the order itself so a confirmed payment can be attributed
+      // back to the campaign that produced it, weeks later, without relying
+      // on the visitor's browser still being around.
+      ...attributionToOrderColumns(attribution),
     });
     if (insertError) throw new Error(insertError.message);
 
@@ -116,9 +103,14 @@ export async function POST(req: NextRequest) {
       amountCents: cents,
       ok: true,
       detail: promo ? "promo 1º mês" : null,
+      meta: hasAttribution(attribution)
+        ? { attribution: attribution as unknown }
+        : null,
     });
 
-    return NextResponse.json({ url, orderNsu });
+    // amountCents goes back so the browser can report InitiateCheckout with
+    // the price actually charged, instead of a number hardcoded in the UI.
+    return NextResponse.json({ url, orderNsu, amountCents: cents });
   } catch (err) {
     if (err instanceof InfinitePayError) {
       console.error(

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PopularMatchesSection } from "@/components/PopularMatchesSection";
 import { SubscribeButton } from "@/components/subscription/SubscribeButton";
-import { PLAN } from "@/lib/plans";
+import { PriceTag } from "@/components/subscription/PriceTag";
+import { SubscriptionOfferTracker } from "@/components/tracking/FunnelTrackers";
+import { PLAN, formatCents } from "@/lib/plans";
+import { priceView, type PriceView } from "@/lib/settings";
 
 /**
  * Ad landing page (/start).
@@ -61,7 +64,13 @@ const AUDIT = {
   ],
 };
 
-export default function StartPage() {
+export default async function StartPage() {
+  // The price shown here MUST be the one the checkout charges. This is the page
+  // paid traffic lands on, and advertising R$ 50 while billing R$ 15 both
+  // wastes the discount as an argument and makes the reported InitiateCheckout
+  // value disagree with the page that produced it.
+  const price = await priceView();
+
   return (
     <>
       <div className="fixed top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-primary-container opacity-[0.04] blur-[120px] pointer-events-none z-0" />
@@ -77,7 +86,7 @@ export default function StartPage() {
         <SaidVsHappened />
         <TopLeagues />
         <HowItWorks />
-        <Pricing />
+        <Pricing price={price} />
         <Faq />
         <FinalCta />
         <Legal />
@@ -394,7 +403,7 @@ function HowItWorks() {
   );
 }
 
-function Pricing() {
+function Pricing({ price }: { price: PriceView }) {
   return (
     <section className="mt-14">
       <SectionTitle
@@ -403,14 +412,18 @@ function Pricing() {
       />
 
       <div className="glass-card rounded-2xl p-6 border border-primary-container/40 shadow-[0_0_28px_rgba(255,107,0,0.12)]">
-        <div className="flex items-baseline gap-2">
-          <span className="font-display-lg text-[42px] leading-none text-on-surface">
-            {PLAN.priceLabel}
-          </span>
-          <span className="font-headline-md text-[14px] text-on-surface-variant">
-            / 30 dias
-          </span>
-        </div>
+        {/* The offer step of the funnel. Sits far down the page, so it reports
+            only once it is actually scrolled into view. */}
+        <SubscriptionOfferTracker surface="start_pricing" />
+        <PriceTag
+          activeCents={price.activeCents}
+          regularCents={price.regularCents}
+          isPromo={price.isPromo}
+          size="lg"
+          // This page states the access does not renew, so "/mês" would
+          // contradict it.
+          cycleLabel="/ 30 dias"
+        />
 
         <p className="mt-2 font-body-md text-[12px] text-on-surface-variant">
           Menos do que a maioria coloca num bilhete só.
@@ -430,7 +443,9 @@ function Pricing() {
           ))}
         </ul>
 
-        <SubscribeButton />
+        <SubscribeButton
+          label={`Assinar por ${formatCents(price.activeCents)}`}
+        />
 
         <div className="mt-4 flex flex-col gap-1.5">
           <Benefit text="Não fica preso: não cobramos de novo no fim do mês." />

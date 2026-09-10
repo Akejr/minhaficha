@@ -55,6 +55,29 @@ export type EventRow = {
 
 export type CheckoutOrderStatus = "pending" | "paid";
 
+/**
+ * Ad attribution and reconciliation handles added by migration 005.
+ *
+ * Split out from the core order because every one of these is optional on
+ * insert: a direct visit has no campaign parameters, and `invoice_slug` only
+ * exists once InfinitePay tells us about it.
+ */
+export type CheckoutOrderAttribution = {
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  fbclid: string | null;
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
+  fbp: string | null;
+  fbc: string | null;
+  landing_path: string | null;
+  invoice_slug: string | null;
+};
+
 export type CheckoutOrderRow = {
   order_nsu: string;
   status: CheckoutOrderStatus;
@@ -65,6 +88,26 @@ export type CheckoutOrderRow = {
   capture_method: string | null;
   receipt_url: string | null;
   access_code: string | null;
+} & CheckoutOrderAttribution;
+
+/**
+ * Ledger of conversion events sent to the ad platforms (migration 005).
+ *
+ * The unique index on (destination, event_id) is what makes reporting
+ * exactly-once — see lib/tracking/conversions.ts.
+ */
+export type ConversionEventRow = {
+  id: number;
+  event_id: string;
+  destination: "meta_capi" | "google_ads";
+  event_name: string;
+  order_nsu: string | null;
+  amount_cents: number | null;
+  status: "pending" | "sent" | "failed";
+  attempts: number;
+  detail: string | null;
+  created_at: string;
+  sent_at: string | null;
 };
 
 export type MatchAnalysisRow = {
@@ -95,11 +138,30 @@ export type Database = {
       };
       checkout_orders: {
         Row: CheckoutOrderRow;
-        Insert: Omit<CheckoutOrderRow, "created_at" | "status"> & {
+        Insert: Omit<
+          CheckoutOrderRow,
+          "created_at" | "status" | keyof CheckoutOrderAttribution
+        > & {
           created_at?: string;
           status?: CheckoutOrderStatus;
-        };
+        } & Partial<CheckoutOrderAttribution>;
         Update: Partial<CheckoutOrderRow>;
+        Relationships: [];
+      };
+      conversion_events: {
+        Row: ConversionEventRow;
+        Insert: Omit<
+          ConversionEventRow,
+          "id" | "created_at" | "status" | "attempts" | "detail" | "sent_at"
+        > & {
+          id?: number;
+          created_at?: string;
+          status?: ConversionEventRow["status"];
+          attempts?: number;
+          detail?: string | null;
+          sent_at?: string | null;
+        };
+        Update: Partial<ConversionEventRow>;
         Relationships: [];
       };
       match_analyses: {

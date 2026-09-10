@@ -32,7 +32,11 @@ export type EventType =
   | "logout"
   // Admin
   | "code_created"
-  | "code_revoked";
+  | "code_revoked"
+  // Ad-platform delivery (Meta Conversions API). Recorded so /admin shows
+  // whether a confirmed sale actually reached the ad platform.
+  | "conversion_sent"
+  | "conversion_failed";
 
 export type EventInput = {
   type: EventType;
@@ -88,6 +92,31 @@ function readRequestContext(): {
   } catch {
     // headers() throws outside a request scope.
     return { path: null, ipHash: null, userAgent: null };
+  }
+}
+
+/**
+ * The visitor's raw IP and user agent, for the Meta Conversions API.
+ *
+ * Deliberately separate from `logEvent`, which stores only `hashIp`. Nothing
+ * here is written to our database: the value is handed straight to the CAPI
+ * call and dropped. Even there, forwarding the IP is opt-in — see
+ * `META_CAPI_SEND_IP` in lib/tracking/meta-capi.ts.
+ *
+ * Kept in this file so every piece of code that touches a raw IP sits next to
+ * the hashing rule it has to respect.
+ */
+export function rawRequestContext(): {
+  ip: string | null;
+  userAgent: string | null;
+} {
+  try {
+    const h = headers();
+    const fwd = h.get("x-forwarded-for");
+    const ip = fwd ? fwd.split(",")[0]!.trim() : h.get("x-real-ip");
+    return { ip: ip || null, userAgent: h.get("user-agent") ?? null };
+  } catch {
+    return { ip: null, userAgent: null };
   }
 }
 

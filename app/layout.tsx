@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { PromoBar, shouldShowPromoBar } from "@/components/PromoBar";
+import { TrackingScripts } from "@/components/tracking/TrackingScripts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -59,6 +60,13 @@ export default async function RootLayout({
           showPromo ? " has-promo" : ""
         }`}
       >
+        {/* Ad pixels. The ids are read here, on the server, and handed down —
+            so they need no NEXT_PUBLIC_ prefix. Absent ids render nothing and
+            every track() call becomes a no-op. */}
+        <TrackingScripts
+          pixelId={process.env.META_PIXEL_ID?.trim() || undefined}
+          googleTagId={process.env.GOOGLE_TAG_ID?.trim() || undefined}
+        />
         <PromoBar />
         <div className="bg-background min-h-screen mx-auto w-full max-w-[440px] relative shadow-[0_0_80px_rgba(0,0,0,0.6)]">
           {children}

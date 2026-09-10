@@ -8,6 +8,7 @@ import { PLAN, formatCents } from "@/lib/plans";
 import type { PriceView } from "@/lib/settings";
 import { SubscribeButton } from "@/components/subscription/SubscribeButton";
 import { PriceTag } from "@/components/subscription/PriceTag";
+import { SubscriptionOfferTracker } from "@/components/tracking/FunnelTrackers";
 
 type Props = {
   /** null when the visitor has no valid code. */
@@ -226,6 +227,9 @@ function NotSubscribed({ price }: { price: PriceView }) {
       </section>
 
       <section className="glass-card rounded-2xl p-6 border border-primary-container/40">
+        {/* The subscription screen itself: reaching it IS seeing the offer,
+            since the plan card is the reason the page exists. */}
+        <SubscriptionOfferTracker surface="profile_plan" immediate />
         <div className="flex items-center justify-between mb-3">
           <span className="font-label-md text-label-md uppercase tracking-wider text-primary-container">
             {PLAN.name}

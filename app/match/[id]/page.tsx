@@ -20,6 +20,10 @@ import { isPrefetchRequest, logEvent } from "@/lib/analytics/events";
 import { priceView, type PriceView } from "@/lib/settings";
 import { PLAN, formatCents } from "@/lib/plans";
 import { PriceTag } from "@/components/subscription/PriceTag";
+import {
+  FreeAnalysisTracker,
+  SubscriptionOfferTracker,
+} from "@/components/tracking/FunnelTrackers";
 
 type PageProps = {
   params: { id: string };
@@ -123,6 +127,13 @@ export default async function MatchAnalysisPage({ params }: PageProps) {
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in">
         <div className="flex flex-col gap-6">
           <MatchHeader analysis={result.analysis} />
+          {/* Top of the funnel. Rendered only on the free path, and only once
+              the analysis above already resolved — a prefetch never mounts
+              this, and a code holder isn't a prospect, so neither is counted.
+              Mock fixtures have non-numeric ids and are skipped. */}
+          {result.isFree && Number.isFinite(Number(params.id)) && (
+            <FreeAnalysisTracker fixtureId={Number(params.id)} />
+          )}
           {result.isFree && <FreeBadge />}
           {result.locked && <LockedBadge />}
           <AISummary
@@ -187,6 +198,9 @@ function LockedBadge() {
 function UpsellCard({ price }: { price: PriceView }) {
   return (
     <section className="glass-card rounded-2xl p-5 text-center">
+      {/* This card sits below the stats, so being rendered is not being seen.
+          The tracker waits until it actually scrolls into view. */}
+      <SubscriptionOfferTracker surface="match_upsell" />
       <h3 className="font-headline-md text-[16px] text-on-surface mb-1">
         Quer ver os palpites e analisar qualquer jogo?
       </h3>

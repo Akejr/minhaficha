@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PLAN } from "@/lib/plans";
+import { readAttribution, track } from "@/lib/tracking/client";
 
 /**
  * Kicks off the InfinitePay checkout.
@@ -25,14 +26,35 @@ export function SubscribeButton({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/checkout", { method: "POST" });
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Where this visitor came from. Sent now, at the one moment we know
+        // both the campaign and the order it produced.
+        body: JSON.stringify({ attribution: readAttribution() }),
+      });
       const json = (await res.json().catch(() => ({}))) as {
         url?: string;
+        orderNsu?: string;
+        amountCents?: number;
         error?: string;
       };
       if (!res.ok || !json.url) {
         throw new Error(json.error ?? "Não foi possível abrir o pagamento.");
       }
+
+      // InitiateCheckout fires HERE — after the link exists, before we hand
+      // the browser over. A failure above throws, so a checkout that never
+      // opened is never reported. The value comes from the server response,
+      // which is what the customer will actually be charged.
+      if (json.orderNsu && typeof json.amountCents === "number") {
+        track({
+          name: "InitiateCheckout",
+          orderNsu: json.orderNsu,
+          valueCents: json.amountCents,
+        });
+      }
+
       window.location.href = json.url;
     } catch (err) {
       setError(

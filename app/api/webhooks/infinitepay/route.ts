@@ -3,6 +3,8 @@ import { issueCodeForOrder } from "@/lib/access/codes";
 import { amountCovers, checkPayment } from "@/lib/infinitepay/client";
 import { serviceRoleClient } from "@/lib/supabase/server";
 import { logEvent } from "@/lib/analytics/events";
+import { baseUrlFromRequest } from "@/lib/site-url";
+import { reportPurchaseForOrder } from "@/lib/tracking/conversions";
 
 /**
  * POST /api/webhooks/infinitepay
@@ -160,6 +162,10 @@ export async function POST(req: NextRequest) {
         capture_method: captureMethod,
         receipt_url: receiptUrl,
         access_code: code,
+        // Kept because payment_check stops recognising older transactions;
+        // when that happens the slug is the only handle left for a manual
+        // reconciliation.
+        invoice_slug: slug,
       })
       .eq("order_nsu", orderNsu);
     if (updateError) throw new Error(updateError.message);
@@ -174,6 +180,25 @@ export async function POST(req: NextRequest) {
       detail: `webhook · ${captureMethod ?? "?"}`,
       captureRequest: false,
     });
+
+    // Report the sale to Meta. Deliberately AFTER the code exists and the
+    // order is marked paid, so the customer's access never waits on a pixel.
+    //
+    // Two protections make this safe to run inside the webhook:
+    //   - reportPurchaseForOrder never throws, so it cannot turn into a 400
+    //     and trigger a retry;
+    //   - the timeout is short, because InfinitePay wants a fast answer and a
+    //     slow one is read as a failure.
+    //
+    // There is no visitor on this request (it comes from InfinitePay), so the
+    // browser cookies come from the order row and the user agent is left out.
+    await reportPurchaseForOrder({
+      orderNsu,
+      eventSourceUrl: `${baseUrlFromRequest(req)}/assinatura/sucesso`,
+      source: "webhook",
+      timeoutMs: 1200,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(`[webhook] order ${orderNsu} failed:`, err);

@@ -13,11 +13,17 @@ export function PriceTag({
   regularCents,
   isPromo,
   size = "lg",
+  cycleLabel = "/mês",
 }: {
   activeCents: number;
   regularCents: number;
   isPromo: boolean;
   size?: "lg" | "md";
+  /**
+   * Billing period shown next to the price. Override where the copy is
+   * explicit that access does not renew — "/mês" would contradict it.
+   */
+  cycleLabel?: string;
 }) {
   const big = size === "lg" ? "text-[40px]" : "text-[30px]";
   const discountPct =
@@ -32,7 +38,7 @@ export function PriceTag({
           {formatCents(activeCents)}
         </span>
         <span className="font-headline-md text-[14px] text-on-surface-variant">
-          /mês
+          {cycleLabel}
         </span>
         {isPromo && (
           <span className="font-label-md text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">

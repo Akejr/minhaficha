@@ -6,7 +6,13 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { issueCodeForOrder, CODE_VALIDITY_DAYS } from "@/lib/access/codes";
 import { amountCovers, checkPayment } from "@/lib/infinitepay/client";
 import { serviceRoleClient } from "@/lib/supabase/server";
-import { logEvent } from "@/lib/analytics/events";
+import { logEvent, rawRequestContext } from "@/lib/analytics/events";
+import { baseUrlFromHeaders } from "@/lib/site-url";
+import {
+  googlePurchaseSendTo,
+  reportPurchaseForOrder,
+} from "@/lib/tracking/conversions";
+import { GooglePurchaseTracker } from "@/components/tracking/FunnelTrackers";
 
 /**
  * Landing page after the InfinitePay checkout.
@@ -35,9 +41,35 @@ type PageProps = {
 };
 
 type Outcome =
-  | { kind: "ok"; code: string; expiresAt: string | null }
+  | {
+      kind: "ok";
+      code: string;
+      expiresAt: string | null;
+      /** What was actually charged — the value reported as the conversion. */
+      amountCents: number;
+    }
   | { kind: "pending" }
   | { kind: "missing" };
+
+/**
+ * Report the sale to Meta and note it for the Google tag.
+ *
+ * Runs on every confirmed render of this page, which is intentional: the
+ * webhook normally reports first, but it may never arrive, and a payment
+ * reconciled by hand never had a webhook at all. `reportPurchaseForOrder`
+ * deduplicates in the database, so calling it here can only ever fill a gap —
+ * it cannot double-count.
+ */
+async function reportPurchase(orderNsu: string): Promise<void> {
+  const { ip, userAgent } = rawRequestContext();
+  await reportPurchaseForOrder({
+    orderNsu,
+    eventSourceUrl: `${baseUrlFromHeaders()}/assinatura/sucesso`,
+    userAgent,
+    clientIp: ip,
+    source: "success_page",
+  });
+}
 
 async function resolveOutcome(sp: PageProps["searchParams"]): Promise<Outcome> {
   const orderNsu = sp.order_nsu?.trim();
@@ -61,10 +93,12 @@ async function resolveOutcome(sp: PageProps["searchParams"]): Promise<Outcome> {
       .select("expires_at")
       .eq("code", order.access_code)
       .maybeSingle();
+    await reportPurchase(orderNsu);
     return {
       kind: "ok",
       code: order.access_code,
       expiresAt: codeRow?.expires_at ?? null,
+      amountCents: order.amount_cents,
     };
   }
 
@@ -101,6 +135,7 @@ async function resolveOutcome(sp: PageProps["searchParams"]): Promise<Outcome> {
         capture_method: check.captureMethod ?? sp.capture_method ?? null,
         receipt_url: sp.receipt_url ?? null,
         access_code: code,
+        invoice_slug: sp.slug ?? null,
       })
       .eq("order_nsu", orderNsu);
 
@@ -119,7 +154,16 @@ async function resolveOutcome(sp: PageProps["searchParams"]): Promise<Outcome> {
       detail: `tela de sucesso · ${check.captureMethod ?? "?"}`,
     });
 
-    return { kind: "ok", code, expiresAt: codeRow?.expires_at ?? null };
+    // The webhook hasn't landed, so this render is the first place that knows
+    // the payment settled. Report it here or the sale goes unattributed.
+    await reportPurchase(orderNsu);
+
+    return {
+      kind: "ok",
+      code,
+      expiresAt: codeRow?.expires_at ?? null,
+      amountCents: order.amount_cents,
+    };
   } catch (err) {
     console.error(`[sucesso] order ${orderNsu} verification failed:`, err);
     return { kind: "pending" };
@@ -140,11 +184,21 @@ export default async function SubscriptionSuccessPage({
 
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern min-h-screen anim-page-in">
         {outcome.kind === "ok" ? (
-          <CodeReveal
-            code={outcome.code}
-            expiresAt={outcome.expiresAt}
-            validityDays={CODE_VALIDITY_DAYS}
-          />
+          <>
+            {/* Google Ads conversion. Reached only on the confirmed branch, so
+                a hand-typed URL or a pending payment reports nothing. Guarded
+                permanently per order, so refreshing this page is silent. */}
+            <GooglePurchaseTracker
+              orderNsu={searchParams.order_nsu ?? ""}
+              valueCents={outcome.amountCents}
+              sendTo={googlePurchaseSendTo()}
+            />
+            <CodeReveal
+              code={outcome.code}
+              expiresAt={outcome.expiresAt}
+              validityDays={CODE_VALIDITY_DAYS}
+            />
+          </>
         ) : outcome.kind === "pending" ? (
           <PendingCard orderNsu={searchParams.order_nsu ?? ""} />
         ) : (

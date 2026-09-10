@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SubscribeButton } from "./SubscribeButton";
 import { formatCents } from "@/lib/plans";
+import { SubscriptionOfferTracker } from "@/components/tracking/FunnelTrackers";
 
 /**
  * Promo shown when a visitor opens one of the FREE analyses.
@@ -105,6 +106,9 @@ export function FreeAnalysisPromo({
       />
 
       <div className="relative w-full max-w-[380px] my-auto glass-card rounded-2xl border border-primary-container/50 p-6 shadow-[0_0_40px_rgba(255,107,0,0.25)]">
+        {/* This subtree only exists while the modal is open, so being mounted
+            IS being visible — no observer needed. */}
+        <SubscriptionOfferTracker surface="free_analysis_modal" immediate />
         <button
           onClick={dismiss}
           aria-label="Fechar"
