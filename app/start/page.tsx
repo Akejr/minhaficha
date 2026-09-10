@@ -1,75 +1,118 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PopularMatchesSection } from "@/components/PopularMatchesSection";
 import { SubscribeButton } from "@/components/subscription/SubscribeButton";
 import { PriceTag } from "@/components/subscription/PriceTag";
 import { SubscriptionOfferTracker } from "@/components/tracking/FunnelTrackers";
-import { PLAN, formatCents } from "@/lib/plans";
+import {
+  fetchPopularFixtures,
+  type PopularFixture,
+} from "@/lib/api-football/popular";
+import { teamLogoUrl } from "@/lib/team-logo";
+import { formatCents } from "@/lib/plans";
 import { priceView, type PriceView } from "@/lib/settings";
 
 /**
  * Ad landing page (/start).
  *
- * Built for paid traffic, so it deliberately differs from the app shell:
- *   - no bottom nav and no account badge — every exit that isn't the CTA is
- *     removed;
- *   - the free fixtures are embedded directly instead of being linked, so the
- *     offer is consumable on the same screen the ad drops into;
- *   - one primary action repeated down the page ("ver análise grátis"), with
- *     the paid plan as the secondary step.
+ * Single job: turn a visitor into someone who has read a real analysis, and
+ * then into a subscriber. Everything on the page serves that, in that order.
  *
- * Copy rule for this page: NO jargon. A visitor arriving from an ad won't
- * look up "Dixon-Coles", "backtest", "pipeline" or "calibração" — every such
- * term is replaced by plain Brazilian Portuguese ("conferimos em jogos que já
- * aconteceram", "o cálculo é nosso"). Keep it that way when editing.
+ * Structural rules, deliberate:
+ *   - the free fixtures appear immediately after the hero, because the fastest
+ *     way to sell an analysis is to let someone read one;
+ *   - no navigation menu and no outbound links except "já tenho código", which
+ *     exists so a paying customer isn't stranded on this page;
+ *   - every number is real. The fixtures come from the live API, the audit
+ *     figures from backtest-results/RESUMO-FINAL.md (403 evaluated suggestions
+ *     across 187 fixtures and 11 competitions, May 2026). No testimonials, no
+ *     countdowns, no fake scarcity, no invented results.
  *
- * On the numbers: every figure here comes from backtest-results/RESUMO-FINAL.md
- * (403 evaluated suggestions across 11 leagues, May 2026). Nothing is rounded
- * up and nothing is invented — an inflated accuracy claim on a betting-adjacent
- * product is both consumer deception under the CDC and grounds for ad accounts
- * being suspended. The per-league ">80%" figures are real but come from small
- * samples, so they are always shown with their case count.
+ * Copy rules:
+ *   - no jargon. Someone arriving from an ad will not look up "Dixon-Coles",
+ *     "backtest", "pipeline" or "calibração";
+ *   - never "aposta certa", "lucro garantido" or "acerto garantido". The
+ *     product estimates probabilities; claiming certainty is both consumer
+ *     deception under the CDC and grounds for an ad account being suspended.
  */
 
 export const metadata: Metadata = {
-  title: "ApostAI — analise os jogos antes de montar o seu bilhete",
+  title: "ApostAI — analise os jogos antes de tomar sua decisão",
   description:
-    "A ApostAI analisa partidas de futebol e sugere seleções para o seu bilhete, com os motivos de cada indicação. 3 análises grátis por dia, sem cadastro.",
+    "Probabilidades estimadas, três níveis de risco e a explicação de cada análise. 3 jogos grátis por dia, sem cadastro.",
   openGraph: {
-    title: "Analise os jogos antes de montar o seu bilhete",
+    title: "Analise os jogos antes de tomar sua decisão",
     description:
-      "Cálculo próprio, conferido em 403 indicações reais. Garantimos vantagem estatística, não certeza.",
+      "Três níveis de risco, probabilidade estimada e o motivo de cada indicação. Estimativas, não certezas.",
     type: "website",
   },
   robots: { index: true, follow: true },
 };
 
-/** Audited results — see backtest-results/RESUMO-FINAL.md */
+/**
+ * Internal historical test — see backtest-results/RESUMO-FINAL.md.
+ *
+ * `said` is the probability the model published, `got` is what actually
+ * happened in the evaluated cases. Shown together on purpose: a model whose
+ * stated probability matches reality is the only credibility claim we can make
+ * honestly, and almost nobody in this market publishes it.
+ */
 const AUDIT = {
-  suggestions: 403,
   fixtures: 187,
+  suggestions: 403,
   leagues: 11,
-  checks: 61,
   levels: [
-    { name: "Baixo risco", hint: "as mais seguras", said: "71,8%", got: "74,0%", cases: "77 casos" },
-    { name: "Médio risco", hint: "equilibradas", said: "48,3%", got: "45,6%", cases: "147 casos" },
-    { name: "Alto risco", hint: "as ousadas", said: "24,5%", got: "23,5%", cases: "179 casos" },
+    {
+      name: "Baixo risco",
+      meaning: "O cenário mais provável dos três. É onde acertamos mais.",
+      tone: "emerald",
+      said: "71,8%",
+      got: "74,0%",
+      cases: "77 casos",
+    },
+    {
+      name: "Médio risco",
+      meaning: "Equilibrado: paga mais que o de baixo risco e sai menos vezes.",
+      tone: "amber",
+      said: "48,3%",
+      got: "45,6%",
+      cases: "147 casos",
+    },
+    {
+      name: "Alto risco",
+      meaning: "O cenário ousado. Sai poucas vezes, e a gente diz isso na cara.",
+      tone: "rose",
+      said: "24,5%",
+      got: "23,5%",
+      cases: "179 casos",
+    },
   ],
-  topLeagues: [
-    { league: "Ligue 1", rate: "91%", cases: "10 de 11" },
-    { league: "Premier League", rate: "82%", cases: "9 de 11" },
-    { league: "La Liga", rate: "79%", cases: "11 de 14" },
-    { league: "Liga Portugal", rate: "78%", cases: "7 de 9" },
-    { league: "Serie A", rate: "71%", cases: "10 de 14" },
-  ],
+} as const;
+
+const TONE: Record<string, { dot: string; border: string; text: string }> = {
+  emerald: {
+    dot: "bg-emerald-400",
+    border: "border-emerald-500/30",
+    text: "text-emerald-300",
+  },
+  amber: {
+    dot: "bg-amber-400",
+    border: "border-amber-500/30",
+    text: "text-amber-300",
+  },
+  rose: {
+    dot: "bg-rose-400",
+    border: "border-rose-500/30",
+    text: "text-rose-300",
+  },
 };
 
 export default async function StartPage() {
-  // The price shown here MUST be the one the checkout charges. This is the page
-  // paid traffic lands on, and advertising R$ 50 while billing R$ 15 both
-  // wastes the discount as an argument and makes the reported InitiateCheckout
-  // value disagree with the page that produced it.
-  const price = await priceView();
+  // Both come from the live system. The price is read rather than hardcoded so
+  // the page can never advertise a number the checkout doesn't charge.
+  const [price, fixtures] = await Promise.all([
+    priceView(),
+    loadFreeFixtures(),
+  ]);
 
   return (
     <>
@@ -80,14 +123,13 @@ export default async function StartPage() {
 
       <main className="px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in pb-24 pt-[calc(var(--promo-height)+env(safe-area-inset-top,0px)+80px)]">
         <Hero />
-        <ProofBar />
-        <FreeOffer />
-        <OwnMath />
-        <SaidVsHappened />
-        <TopLeagues />
+        <RealAnalysisNow fixtures={fixtures} />
+        <RiskPreview />
         <HowItWorks />
-        <Pricing price={price} />
-        <Faq />
+        <Credibility />
+        <Offer price={price} />
+        <Transparency />
+        <Faq price={price} />
         <FinalCta />
         <Legal />
       </main>
@@ -95,7 +137,20 @@ export default async function StartPage() {
   );
 }
 
-/** Minimal header: brand + a single link out for existing customers. */
+/** Never let a failed fixture call take the whole landing page down. */
+async function loadFreeFixtures(): Promise<PopularFixture[]> {
+  try {
+    return await fetchPopularFixtures();
+  } catch (err) {
+    console.error("[start] free fixtures unavailable:", err);
+    return [];
+  }
+}
+
+/**
+ * Brand plus one way out, for someone who already paid. Everything else that
+ * could pull attention off the page is intentionally absent.
+ */
 function LandingHeader() {
   return (
     <header
@@ -120,33 +175,23 @@ function LandingHeader() {
   );
 }
 
+/* ---------------------------------------------------------------- 1. Hero */
+
 function Hero() {
   return (
     <section className="pt-6 text-center">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-container/40 bg-primary-container/10 px-3 py-1.5 font-label-md text-[10px] uppercase tracking-wider text-primary-container">
-        <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse" />
-        Cálculo próprio · testado de verdade
-      </span>
-
-      <h1 className="font-display-lg text-[32px] leading-[1.12] tracking-tight text-on-surface mt-5">
+      <h1 className="font-display-lg text-[32px] leading-[1.12] tracking-tight text-on-surface">
         Analise os jogos antes
         <br />
-        de montar o{" "}
+        de{" "}
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-container to-secondary-container">
-          seu bilhete.
+          tomar sua decisão.
         </span>
       </h1>
 
       <p className="font-body-lg text-[16px] leading-relaxed text-on-surface-variant mt-4">
-        A ApostAI analisa partidas de futebol e sugere seleções para o seu
-        bilhete, com os motivos por trás de cada indicação.
-      </p>
-
-      {/* The honest promise, given its own weight. Refusing to promise profit
-          reads as confidence and pre-empts the biggest objection. */}
-      <p className="mt-5 rounded-xl border border-primary-container/40 bg-primary-container/10 px-4 py-3 font-headline-md text-[15px] leading-snug text-on-surface">
-        Garantimos vantagem estatística,{" "}
-        <span className="text-primary-container">não certeza.</span>
+        Veja probabilidades estimadas, três níveis de risco e a explicação por
+        trás de cada análise.
       </p>
 
       <div className="mt-7">
@@ -154,232 +199,287 @@ function Hero() {
           href="#gratis"
           className="w-full bg-gradient-to-r from-primary-container to-secondary-container text-white font-label-md text-label-md py-4 rounded-full hover:opacity-90 transition-all hover:shadow-[0_0_24px_rgba(255,107,0,0.45)] flex items-center justify-center gap-2 press"
         >
-          Ver 3 análises grátis agora
+          Ver análises grátis de hoje
           <span className="material-symbols-outlined text-[18px]">
             arrow_downward
           </span>
         </a>
         <p className="mt-3 font-body-md text-[12px] text-on-surface-variant">
-          Sem cadastro. Sem cartão. Sem email.
+          3 jogos grátis por dia • sem cadastro
         </p>
       </div>
     </section>
   );
 }
 
-function ProofBar() {
-  const items = [
-    { value: "74%", label: "de acerto nas indicações mais seguras" },
-    { value: String(AUDIT.suggestions), label: "indicações já conferidas" },
-    { value: String(AUDIT.leagues), label: "campeonatos testados" },
-  ];
-  return (
-    <section className="mt-8 grid grid-cols-3 gap-2">
-      {items.map((i) => (
-        <div key={i.label} className="glass-card rounded-xl px-2 py-4 text-center">
-          <p className="font-display-lg text-[22px] leading-none text-on-surface">
-            {i.value}
-          </p>
-          <p className="mt-1.5 font-body-md text-[11px] leading-tight text-on-surface-variant">
-            {i.label}
-          </p>
-        </div>
-      ))}
-    </section>
-  );
-}
+/* ------------------------------------------- 2. The offer, consumable now */
 
-/** The offer, consumable right here. This is the page's core conversion move. */
-function FreeOffer() {
+/**
+ * The page's core move: a real analysis, one tap away, before any price is
+ * mentioned. These are the actual free fixtures the app unlocks today — the
+ * same list `lib/free-fixtures.ts` uses to grant access, so what is advertised
+ * here and what actually opens can never drift apart.
+ */
+function RealAnalysisNow({ fixtures }: { fixtures: PopularFixture[] }) {
   return (
     <section id="gratis" className="mt-12 scroll-mt-24">
-      <PopularMatchesSection />
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <span className="font-label-md text-[10px] uppercase tracking-[0.18em] text-primary-container">
+            Comece por aqui
+          </span>
+          <h2 className="font-headline-md text-[20px] leading-tight text-on-surface mt-1">
+            Veja uma análise real agora
+          </h2>
+        </div>
+        <span className="shrink-0 mt-1 font-label-md text-[10px] uppercase tracking-wider px-2 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
+          Grátis
+        </span>
+      </div>
+
+      {fixtures.length === 0 ? (
+        <div className="glass-card rounded-xl p-6 text-center">
+          <p className="font-body-md text-[13px] text-on-surface-variant">
+            Não foi possível carregar os jogos de hoje agora. Atualize a página
+            em alguns instantes.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {fixtures.map((f) => (
+            <FreeFixtureCard key={f.fixtureId} fixture={f} />
+          ))}
+        </div>
+      )}
+
       <p className="mt-4 text-center font-body-md text-[12px] text-on-surface-variant">
-        Toque em qualquer jogo acima. A análise abre inteira, com as 3 indicações
-        e a chance de cada uma.
+        A análise abre inteira: os três cenários, a probabilidade estimada de
+        cada um e o motivo. Sem cadastro.
       </p>
     </section>
   );
 }
 
-function OwnMath() {
-  const cards = [
-    {
-      icon: "calculate",
-      title: "O cálculo é nosso",
-      body: "A conta que usamos foi feita por nós, do zero. Não é palpite comprado de fora, nem lista revendida de outro site, nem chute de influenciador.",
-    },
-    {
-      icon: "shield_lock",
-      title: "A inteligência artificial não inventa número",
-      body: "Quem calcula a chance de cada resultado é a nossa conta. A IA só escolhe entre o que já foi calculado e escreve a explicação — ela não pode mudar nenhuma porcentagem.",
-    },
-    {
-      icon: "history",
-      title: "Testamos em jogos que já aconteceram",
-      body: `Rodamos a nossa conta em ${AUDIT.fixtures} partidas já encerradas, sem deixar ela ver o resultado, e comparamos com o que aconteceu de verdade. São ${AUDIT.checks} verificações automáticas rodando por cima de tudo.`,
-    },
-  ];
-
+function FreeFixtureCard({ fixture }: { fixture: PopularFixture }) {
   return (
-    <section className="mt-14">
-      <SectionTitle eyebrow="Por que confiar" title="A conta é nossa, e ela é testada" />
-      <div className="flex flex-col gap-3">
-        {cards.map((c) => (
-          <article key={c.title} className="glass-card rounded-xl p-5">
-            <div className="flex items-start gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary-container text-[20px] mt-0.5 shrink-0">
-                {c.icon}
-              </span>
-              <h3 className="font-headline-md text-[16px] leading-snug text-on-surface">
-                {c.title}
-              </h3>
-            </div>
-            <p className="font-body-md text-[13px] leading-relaxed text-on-surface-variant">
-              {c.body}
-            </p>
-          </article>
-        ))}
+    <Link
+      href={`/match/${fixture.fixtureId}`}
+      // Prefetch MUST stay off. /match/[id] is dynamic, so a prefetch would
+      // server-render the whole analysis in the background: it logs a view
+      // nobody made and, on a cache miss, spends real API and OpenAI money on
+      // a page that was never opened.
+      prefetch={false}
+      className="glass-card rounded-xl p-5 block hover:border-primary-container/30 transition-colors group press"
+    >
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <KickoffBadge fixture={fixture} />
+        <span className="font-mono-data text-mono-data text-on-surface-variant truncate">
+          {fixture.league}
+        </span>
       </div>
-    </section>
+
+      <div className="flex flex-col gap-3">
+        <TeamRow
+          name={fixture.home.name}
+          logo={fixture.home.logo}
+          score={fixture.score?.home}
+        />
+        <div className="h-px w-full bg-white/5" />
+        <TeamRow
+          name={fixture.away.name}
+          logo={fixture.away.logo}
+          score={fixture.score?.away}
+        />
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-2">
+        <span className="font-label-md text-label-md text-primary-container group-hover:opacity-80 transition-opacity">
+          Ver análise grátis
+        </span>
+        <span className="material-symbols-outlined text-primary-container text-[18px]">
+          arrow_forward
+        </span>
+      </div>
+    </Link>
   );
 }
 
 /**
- * Publishing said-vs-happened is the strongest trust asset available: almost
- * nobody in this market shows where they land. It also kills the "isso é mais
- * um vendedor de palpite" objection before the price appears.
+ * Kickoff time, or the live/finished state.
+ *
+ * A finished fixture stays in the free set on purpose: the analysis is still
+ * readable next to the real score, which is the cheapest honest demonstration
+ * that the numbers mean something.
  */
-function SaidVsHappened() {
+function KickoffBadge({ fixture }: { fixture: PopularFixture }) {
+  if (fixture.state === "finished") {
+    return (
+      <span className="font-label-md text-label-md px-2 py-1 rounded bg-white/5 border border-white/15 text-on-surface-variant truncate">
+        Encerrado
+      </span>
+    );
+  }
+  if (fixture.state === "live") {
+    return (
+      <span className="font-label-md text-label-md px-2 py-1 rounded bg-error/10 border border-error/40 text-error truncate inline-flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
+        Ao vivo
+      </span>
+    );
+  }
   return (
-    <section className="mt-14">
-      <SectionTitle
-        eyebrow="De cara limpa"
-        title="O que a gente disse e o que realmente deu"
-      />
-
-      <div className="glass-card rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-3 border-b border-white/10">
-          <span className="font-label-md text-[10px] uppercase tracking-wider text-on-surface-variant">
-            Tipo de indicação
-          </span>
-          <span className="font-label-md text-[10px] uppercase tracking-wider text-on-surface-variant text-right w-[64px]">
-            Dissemos
-          </span>
-          <span className="font-label-md text-[10px] uppercase tracking-wider text-primary-container text-right w-[52px]">
-            Deu
-          </span>
-        </div>
-
-        {AUDIT.levels.map((l) => (
-          <div
-            key={l.name}
-            className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-3 border-b border-white/5 last:border-b-0 items-center"
-          >
-            <div className="min-w-0">
-              <p className="font-body-md text-[13px] text-on-surface truncate">
-                {l.name}{" "}
-                <span className="text-on-surface-variant/70">({l.hint})</span>
-              </p>
-              <p className="font-body-md text-[10px] text-on-surface-variant/70">
-                {l.cases}
-              </p>
-            </div>
-            <span className="font-mono-data text-[13px] text-on-surface-variant text-right w-[64px]">
-              {l.said}
-            </span>
-            <span className="font-mono-data text-[13px] text-on-surface text-right w-[52px]">
-              {l.got}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-4 font-body-md text-[13px] leading-relaxed text-on-surface-variant">
-        Nenhum dos três fugiu mais de{" "}
-        <span className="text-on-surface font-semibold">3 pontos</span> do que
-        aparece na tela. Na prática: quando a gente mostra 72% de chance,
-        acontece perto de 72% — e não 40%.
-      </p>
-    </section>
+    <span className="font-label-md text-label-md px-2 py-1 rounded bg-surface-container border border-white/10 text-on-surface-variant truncate">
+      Hoje, {fixture.stateLabel}
+    </span>
   );
 }
 
-function TopLeagues() {
+function TeamRow({
+  name,
+  logo,
+  score,
+}: {
+  name: string;
+  logo: string;
+  score?: number;
+}) {
+  const proxied = teamLogoUrl(logo);
+  return (
+    <div className="flex items-center gap-3">
+      {proxied ? (
+        <div className="w-7 h-7 rounded-full bg-white/95 border border-white/10 flex items-center justify-center p-1 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={proxied}
+            alt={name}
+            width={20}
+            height={20}
+            className="w-5 h-5 object-contain"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div className="w-7 h-7 rounded-full bg-surface-container-high border border-white/10 flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-on-surface-variant text-[14px]">
+            shield
+          </span>
+        </div>
+      )}
+      <span className="font-headline-md text-[16px] text-on-surface truncate flex-1">
+        {name}
+      </span>
+      {score != null && (
+        <span className="font-mono-data text-[18px] text-on-surface shrink-0">
+          {score}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------- 3. The three scenarios */
+
+/**
+ * What the visitor will find inside an analysis.
+ *
+ * Shows the published probability next to what actually happened, from the
+ * internal historical test. Real numbers, and the closeness between the two
+ * columns is the whole argument: when the screen says 72%, it happens near
+ * 72% — not near 40%.
+ */
+function RiskPreview() {
   return (
     <section className="mt-14">
       <SectionTitle
-        eyebrow="Onde acertamos mais"
-        title="Passa de 80% nos campeonatos mais previsíveis"
+        eyebrow="O que você vê na análise"
+        title="Três cenários, do mais seguro ao mais ousado"
       />
 
-      <div className="glass-card rounded-xl p-5">
-        <p className="font-body-md text-[12px] text-on-surface-variant mb-4">
-          Acerto das indicações de baixo risco, campeonato por campeonato:
-        </p>
-        <div className="flex flex-col gap-3">
-          {AUDIT.topLeagues.map((l) => {
-            const pct = parseInt(l.rate, 10);
-            return (
-              <div key={l.league}>
-                <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <span className="font-body-md text-[13px] text-on-surface truncate">
-                    {l.league}
-                  </span>
-                  <span className="font-mono-data text-[13px] text-on-surface shrink-0">
-                    {l.rate}{" "}
-                    <span className="text-on-surface-variant/60 text-[11px]">
-                      ({l.cases})
-                    </span>
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      pct >= 80
-                        ? "bg-emerald-400"
-                        : "bg-gradient-to-r from-primary-container to-secondary-container"
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+      <div className="flex flex-col gap-3">
+        {AUDIT.levels.map((l) => {
+          const tone = TONE[l.tone]!;
+          return (
+            <article
+              key={l.name}
+              className={`glass-card rounded-xl p-5 border ${tone.border}`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`w-2 h-2 rounded-full ${tone.dot}`} />
+                <h3
+                  className={`font-headline-md text-[15px] ${tone.text} flex-1`}
+                >
+                  {l.name}
+                </h3>
               </div>
-            );
-          })}
-        </div>
+              <p className="font-body-md text-[13px] leading-relaxed text-on-surface-variant">
+                {l.meaning}
+              </p>
+
+              <div className="mt-4 flex items-center gap-4 pt-3 border-t border-white/5">
+                <div className="min-w-0">
+                  <p className="font-label-md text-[9px] uppercase tracking-wider text-on-surface-variant/70">
+                    Dissemos
+                  </p>
+                  <p className="font-mono-data text-[15px] text-on-surface-variant mt-0.5">
+                    {l.said}
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-on-surface-variant/40 text-[18px]">
+                  arrow_forward
+                </span>
+                <div className="min-w-0">
+                  <p className="font-label-md text-[9px] uppercase tracking-wider text-primary-container">
+                    Aconteceu
+                  </p>
+                  <p className="font-mono-data text-[15px] text-on-surface mt-0.5">
+                    {l.got}
+                  </p>
+                </div>
+                <p className="ml-auto font-body-md text-[10px] text-on-surface-variant/60 text-right">
+                  {l.cases}
+                </p>
+              </div>
+            </article>
+          );
+        })}
       </div>
 
-      <p className="mt-3 font-body-md text-[11px] leading-relaxed text-on-surface-variant/80">
-        Entre parênteses está quantos casos conferimos em cada campeonato. São
-        poucos casos por campeonato, então o número mais firme é a média geral
-        de baixo risco: 74%, com 77 casos.
+      <p className="mt-4 rounded-xl border border-white/10 bg-surface-container/60 px-4 py-3 font-body-md text-[12px] leading-relaxed text-on-surface-variant">
+        <span className="text-on-surface font-semibold">
+          Baixo risco não significa garantia.
+        </span>{" "}
+        Toda análise apresenta estimativas, não certezas. Os números acima vêm
+        de um teste com jogos que já aconteceram e não se repetem
+        necessariamente.
       </p>
     </section>
   );
 }
+
+/* ---------------------------------------------------------- 4. How it works */
 
 function HowItWorks() {
   const steps = [
     {
       n: "1",
-      title: "Escolha o jogo",
-      body: "Busque o seu time ou toque num dos jogos liberados do dia.",
+      title: "Escolha um jogo",
+      body: "Toque num dos jogos liberados de hoje. Não precisa de cadastro nem cartão.",
     },
     {
       n: "2",
-      title: "A gente faz a conta",
-      body: "Olhamos os últimos jogos dos dois times, o histórico entre eles, a posição na tabela, quem está fora por lesão e quantos dias de descanso cada um teve.",
+      title: "Veja os três cenários e a explicação",
+      body: "Baixo, médio e alto risco, cada um com a probabilidade estimada e o motivo escrito em português simples.",
     },
     {
       n: "3",
-      title: "Você recebe 3 indicações",
-      body: "Uma mais segura, uma equilibrada e uma ousada. Cada uma com a chance em porcentagem e o motivo escrito em português simples.",
+      title: "Desbloqueie os outros jogos por 30 dias",
+      body: "Se fizer sentido para você, libere qualquer partida e receba o código de acesso na hora.",
     },
   ];
 
   return (
     <section className="mt-14">
-      <SectionTitle eyebrow="Como funciona" title="Três toques" />
+      <SectionTitle eyebrow="Como funciona" title="Três passos" />
       <div className="flex flex-col gap-4">
         {steps.map((s) => (
           <div key={s.n} className="flex gap-3">
@@ -403,64 +503,104 @@ function HowItWorks() {
   );
 }
 
-function Pricing({ price }: { price: PriceView }) {
+/* ---------------------------------------------------------- 5. Credibility */
+
+function Credibility() {
+  const items = [
+    { value: String(AUDIT.fixtures), label: "jogos analisados" },
+    { value: String(AUDIT.suggestions), label: "sugestões avaliadas" },
+    { value: String(AUDIT.leagues), label: "competições" },
+  ];
+
   return (
     <section className="mt-14">
       <SectionTitle
-        eyebrow="Depois dos grátis"
-        title="Qualquer jogo, por 30 dias"
+        eyebrow="Antes de lançar"
+        title="O modelo foi testado antes de ser lançado"
       />
 
+      <div className="grid grid-cols-3 gap-2">
+        {items.map((i) => (
+          <div
+            key={i.label}
+            className="glass-card rounded-xl px-2 py-4 text-center"
+          >
+            <p className="font-display-lg text-[22px] leading-none text-on-surface">
+              {i.value}
+            </p>
+            <p className="mt-1.5 font-body-md text-[11px] leading-tight text-on-surface-variant">
+              {i.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 font-body-md text-[12px] leading-relaxed text-on-surface-variant">
+        Rodamos o modelo em partidas que já tinham terminado, sem deixar que ele
+        visse o resultado, e comparamos com o que realmente aconteceu. São{" "}
+        <span className="text-on-surface">testes históricos internos</span> — não
+        são garantia de resultados futuros.
+      </p>
+    </section>
+  );
+}
+
+/* --------------------------------------------------------------- 6. Offer */
+
+function Offer({ price }: { price: PriceView }) {
+  return (
+    <section className="mt-14">
+      <SectionTitle eyebrow="Acesso completo" title="Quer analisar outros jogos?" />
+
       <div className="glass-card rounded-2xl p-6 border border-primary-container/40 shadow-[0_0_28px_rgba(255,107,0,0.12)]">
-        {/* The offer step of the funnel. Sits far down the page, so it reports
-            only once it is actually scrolled into view. */}
+        {/* Existing funnel marker, already shipped. Reports the offer step only
+            once it is actually scrolled into view. */}
         <SubscriptionOfferTracker surface="start_pricing" />
+
         <PriceTag
           activeCents={price.activeCents}
           regularCents={price.regularCents}
           isPromo={price.isPromo}
           size="lg"
-          // This page states the access does not renew, so "/mês" would
+          // This block states the access does not renew, so "/mês" would
           // contradict it.
-          cycleLabel="/ 30 dias"
+          cycleLabel="por 30 dias"
         />
-
-        <p className="mt-2 font-body-md text-[12px] text-on-surface-variant">
-          Menos do que a maioria coloca num bilhete só.
-        </p>
 
         <ul className="flex flex-col gap-2 mt-5 mb-6">
-          {PLAN.perks.map((p) => (
-            <li
-              key={p}
-              className="flex items-start gap-2 font-body-md text-[13px] text-on-surface-variant"
-            >
-              <span className="material-symbols-outlined text-emerald-300 text-[16px] mt-0.5">
-                check_circle
-              </span>
-              {p}
-            </li>
-          ))}
+          <Perk text="Qualquer jogo dos campeonatos que cobrimos, sem limite." />
+          <Perk text="Os três cenários e a explicação de cada um." />
+          <Perk text="Histórico das suas análises salvo." />
+          <Perk text="Acesso por código, sem cadastro e sem senha." />
         </ul>
 
-        <SubscribeButton
-          label={`Assinar por ${formatCents(price.activeCents)}`}
-        />
+        <SubscribeButton label="Desbloquear acesso" />
 
         <div className="mt-4 flex flex-col gap-1.5">
-          <Benefit text="Não fica preso: não cobramos de novo no fim do mês." />
-          <Benefit text="Pague no Pix ou no cartão." />
-          <Benefit text="O seu código de acesso aparece na hora." />
+          <Benefit text="Pague no Pix ou no cartão, pela InfinitePay." />
+          <Benefit text="O código de acesso aparece assim que o pagamento é confirmado." />
+          <Benefit text="Não renova automaticamente: nada é cobrado de novo no fim do período." />
         </div>
       </div>
     </section>
   );
 }
 
+function Perk({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2 font-body-md text-[13px] text-on-surface-variant">
+      <span className="material-symbols-outlined text-emerald-300 text-[16px] mt-0.5 shrink-0">
+        check_circle
+      </span>
+      {text}
+    </li>
+  );
+}
+
 function Benefit({ text }: { text: string }) {
   return (
     <p className="flex items-start gap-1.5 font-body-md text-[11px] text-on-surface-variant">
-      <span className="material-symbols-outlined text-emerald-300 text-[14px] mt-0.5">
+      <span className="material-symbols-outlined text-emerald-300 text-[14px] mt-0.5 shrink-0">
         done
       </span>
       {text}
@@ -468,31 +608,89 @@ function Benefit({ text }: { text: string }) {
   );
 }
 
-function Faq() {
+/* -------------------------------------------------------- 7. Transparency */
+
+function Transparency() {
+  return (
+    <section className="mt-14">
+      <SectionTitle eyebrow="De cara limpa" title="O que a ApostAI não é" />
+
+      <div className="glass-card rounded-xl p-5 flex flex-col gap-3">
+        <Point
+          icon="analytics"
+          title="É uma ferramenta de análise esportiva"
+          body="A gente calcula probabilidades e explica o raciocínio. O que você faz com a informação é sua decisão."
+        />
+        <div className="h-px w-full bg-white/5" />
+        <Point
+          icon="block"
+          title="Não é uma casa de apostas"
+          body="Não aceitamos apostas, não movimentamos o seu dinheiro de jogo e não recebemos comissão de casa nenhuma."
+        />
+        <div className="h-px w-full bg-white/5" />
+        <Point
+          icon="trending_down"
+          title="Não promete lucro nem garante resultado"
+          body="Probabilidade não é certeza. Você pode perder o valor que arriscar, inclusive seguindo uma indicação de baixo risco."
+        />
+      </div>
+    </section>
+  );
+}
+
+function Point({
+  icon,
+  title,
+  body,
+}: {
+  icon: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="material-symbols-outlined text-primary-container text-[20px] mt-0.5 shrink-0">
+        {icon}
+      </span>
+      <div>
+        <h3 className="font-headline-md text-[14px] leading-snug text-on-surface mb-0.5">
+          {title}
+        </h3>
+        <p className="font-body-md text-[13px] leading-relaxed text-on-surface-variant">
+          {body}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- 8. FAQ */
+
+function Faq({ price }: { price: PriceView }) {
   const items = [
     {
-      q: "Preciso criar conta?",
-      a: "Não. Os 3 jogos liberados abrem direto. Quem assina recebe um código e entra só com ele — sem email, sem senha.",
+      q: "O que está incluído?",
+      a: "A análise de qualquer jogo dos campeonatos que cobrimos, sem limite de quantidade. Em cada uma você vê os três cenários — baixo, médio e alto risco — com a probabilidade estimada e a explicação de cada indicação. O seu histórico de análises fica salvo.",
     },
     {
-      q: "Vocês garantem que eu vou lucrar?",
-      a: "Não, e desconfie de quem garantir. O que a gente entrega é vantagem estatística: nas indicações de baixo risco, 74% saíram como previsto em 403 casos que conferimos. Isso melhora a sua decisão, mas não tira o risco.",
+      q: "Quantos jogos grátis posso analisar?",
+      a: "Três por dia, escolhidos pelo sistema, com horários diferentes ao longo do dia. Abrem completos, sem cadastro e sem cartão. Quando um deles termina, a análise continua disponível ao lado do resultado real.",
     },
     {
-      q: "Vai cobrar de novo no meu cartão?",
-      a: "Não. Você paga uma vez e usa 30 dias. Quando acabar, é você que decide se compra outro mês.",
+      q: "Como recebo o acesso após pagar?",
+      a: "Assim que a InfinitePay confirma o pagamento, a tela mostra o seu código de 12 caracteres. Salve na hora: é a sua única forma de entrar e não há recuperação por email. Se a confirmação demorar alguns segundos, a página avisa e você pode atualizar.",
     },
     {
-      q: "Como recebo o acesso?",
-      a: "Assim que o pagamento é aprovado, a tela mostra o seu código. Salve na hora: é a sua única forma de entrar, e não tem como recuperar por email.",
+      q: "Por quanto tempo o acesso funciona?",
+      a: "30 dias a partir da confirmação do pagamento. Não renova automaticamente: nada é cobrado de novo no fim do período, e é você que decide se quer continuar.",
     },
     {
-      q: "Quais campeonatos vocês analisam?",
-      a: "Brasileirão, Copa do Brasil, Libertadores, Sul-Americana e os principais da Europa. A busca entende apelido: escreva timão, verdão, mengão ou fogão.",
+      q: "Preciso criar cadastro?",
+      a: "Não. Não pedimos email, senha nem dados pessoais. Os jogos grátis abrem direto, e quem paga entra apenas com o código de acesso.",
     },
     {
-      q: "Vocês são casa de apostas?",
-      a: "Não. A gente não aceita aposta, não mexe com o seu dinheiro e não ganha comissão de casa nenhuma. O que vendemos é a análise.",
+      q: "O ApostAI garante acertos?",
+      a: "Não, e desconfie de quem garantir. O que entregamos são probabilidades estimadas e o raciocínio por trás delas. No nosso teste histórico, as indicações de baixo risco saíram como previsto em 74% dos casos avaliados — o que ajuda a decidir melhor, mas não elimina o risco de perder.",
     },
   ];
 
@@ -516,9 +714,18 @@ function Faq() {
           </details>
         ))}
       </div>
+      <p className="mt-3 px-1 font-body-md text-[11px] text-on-surface-variant/70">
+        Acesso completo por {formatCents(price.activeCents)}
+        {price.isPromo && (
+          <> — promoção, de {formatCents(price.regularCents)}</>
+        )}
+        .
+      </p>
     </section>
   );
 }
+
+/* ---------------------------------------------------- 9. One final action */
 
 function FinalCta() {
   return (
@@ -527,23 +734,17 @@ function FinalCta() {
         Comece pelos grátis
       </h2>
       <p className="mt-2 font-body-md text-[14px] text-on-surface-variant">
-        Veja a análise completa de 3 jogos hoje e decida depois.
+        Leia uma análise completa hoje e decida depois.
       </p>
       <a
         href="#gratis"
         className="mt-5 w-full bg-gradient-to-r from-primary-container to-secondary-container text-white font-label-md text-label-md py-4 rounded-full hover:opacity-90 transition-all hover:shadow-[0_0_24px_rgba(255,107,0,0.45)] flex items-center justify-center gap-2 press"
       >
-        Ver os jogos grátis
+        Começar análise grátis
         <span className="material-symbols-outlined text-[18px]">
           arrow_upward
         </span>
       </a>
-      <Link
-        href="/"
-        className="mt-4 inline-block font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
-      >
-        Ou buscar um jogo específico
-      </Link>
     </section>
   );
 }
@@ -566,15 +767,15 @@ function Legal() {
       </div>
       <p className="font-body-md text-[11px] leading-relaxed text-on-surface-variant/80">
         A ApostAI é uma ferramenta de análise e não é uma casa de apostas. Não
-        aceitamos apostas nem movimentamos dinheiro de jogo. Chance não é
+        aceitamos apostas nem movimentamos dinheiro de jogo. Probabilidade não é
         garantia: nenhuma análise assegura retorno, e você pode perder o valor
-        que apostar. Conteúdo para maiores de 18 anos. Aposta pode causar
+        que arriscar. Conteúdo para maiores de 18 anos. Aposta pode causar
         dependência — se o jogo deixou de ser diversão, procure ajuda.
       </p>
       <p className="mt-3 font-body-md text-[11px] text-on-surface-variant/60">
-        De onde vêm os números: teste feito em maio de 2026 com{" "}
-        {AUDIT.fixtures} partidas e {AUDIT.suggestions} indicações conferidas em{" "}
-        {AUDIT.leagues} campeonatos. Resultado passado não se repete
+        De onde vêm os números: teste histórico interno feito em maio de 2026 com{" "}
+        {AUDIT.fixtures} partidas e {AUDIT.suggestions} sugestões avaliadas em{" "}
+        {AUDIT.leagues} competições. Resultado passado não se repete
         necessariamente.
       </p>
     </section>
@@ -600,7 +801,7 @@ function SectionTitle({
   );
 }
 
-// The embedded free fixtures come from a live API call, so revalidate rather
-// than prerender at build time. Keeps the landing page fast for ad traffic
-// while the fixture list stays current.
+// The free fixtures come from a live API call, so revalidate rather than
+// prerender at build time: the landing stays fast for ad traffic while the
+// fixture list stays current.
 export const revalidate = 300;
