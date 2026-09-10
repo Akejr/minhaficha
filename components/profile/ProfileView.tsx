@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatCode } from "@/lib/access/format";
-import { PLAN } from "@/lib/plans";
+import { PLAN, formatCents } from "@/lib/plans";
+import type { PriceView } from "@/lib/settings";
 import { SubscribeButton } from "@/components/subscription/SubscribeButton";
+import { PriceTag } from "@/components/subscription/PriceTag";
 
 type Props = {
   /** null when the visitor has no valid code. */
@@ -17,6 +19,8 @@ type Props = {
   } | null;
   /** True only for the master code — shows the link to /admin. */
   isOwner?: boolean;
+  /** Active vs standard price, for the sales/renew copy. */
+  price: PriceView;
 };
 
 /**
@@ -26,7 +30,7 @@ type Props = {
  * how long it lasts, and the buttons to renew or sign out. Visitors without a
  * code see the sales pitch instead.
  */
-export function ProfileView({ access, isOwner = false }: Props) {
+export function ProfileView({ access, isOwner = false, price }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -49,7 +53,7 @@ export function ProfileView({ access, isOwner = false }: Props) {
     }
   }
 
-  if (!access) return <NotSubscribed />;
+  if (!access) return <NotSubscribed price={price} />;
 
   const expiryLabel = access.expiresAt
     ? new Intl.DateTimeFormat("pt-BR", {
@@ -137,8 +141,8 @@ export function ProfileView({ access, isOwner = false }: Props) {
           <SubscribeButton
             label={
               access.isPermanent
-                ? `Comprar acesso extra (${PLAN.priceLabel})`
-                : `Renovar por ${PLAN.priceLabel}`
+                ? `Comprar acesso extra (${formatCents(price.activeCents)})`
+                : `Renovar por ${formatCents(price.activeCents)}`
             }
           />
           <button
@@ -198,7 +202,7 @@ export function ProfileView({ access, isOwner = false }: Props) {
 }
 
 /** Sales screen for visitors with no code. */
-function NotSubscribed() {
+function NotSubscribed({ price }: { price: PriceView }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col items-center text-center pt-2">
@@ -230,13 +234,13 @@ function NotSubscribed() {
             30 dias
           </span>
         </div>
-        <div className="flex items-baseline gap-2 mb-5">
-          <span className="font-display-lg text-[40px] text-on-surface leading-none">
-            {PLAN.priceLabel}
-          </span>
-          <span className="font-headline-md text-[14px] text-on-surface-variant">
-            /mês
-          </span>
+        <div className="mb-5">
+          <PriceTag
+            activeCents={price.activeCents}
+            regularCents={price.regularCents}
+            isPromo={price.isPromo}
+            size="lg"
+          />
         </div>
 
         <ul className="flex flex-col gap-2 mb-6">
@@ -253,7 +257,9 @@ function NotSubscribed() {
           ))}
         </ul>
 
-        <SubscribeButton />
+        <SubscribeButton
+          label={`Assinar por ${formatCents(price.activeCents)}`}
+        />
 
         <p className="mt-4 font-body-md text-[12px] text-on-surface-variant text-center">
           Pagamento pela InfinitePay (Pix ou cartão). Ao aprovar, você recebe um

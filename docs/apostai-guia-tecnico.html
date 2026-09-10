@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>ApostAI — Guia Técnico e Funcional</title>
+<style>
+  @page {
+    size: A4;
+    margin: 22mm 18mm 20mm 18mm;
+    @bottom-center {
+      content: "ApostAI — Guia Técnico  ·  página " counter(page) " de " counter(pages);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 8.5pt;
+      color: #8a8a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1c1c1c;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    page-break-after: always;
+    background: linear-gradient(160deg, #131313 0%, #1a1a1a 60%, #2a1200 100%);
+    color: #fff;
+    margin: -22mm -18mm -20mm -18mm;
+    padding: 22mm 18mm;
+  }
+  .cover .logo {
+    font-size: 40pt;
+    font-weight: 800;
+    background: linear-gradient(90deg, #ff6b00, #e60000);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6mm;
+    letter-spacing: -0.5px;
+  }
+  .cover .subtitle {
+    font-size: 16pt;
+    font-weight: 300;
+    color: #e5e2e1;
+    margin-bottom: 14mm;
+  }
+  .cover .tag {
+    display: inline-block;
+    border: 1px solid #ff6b00;
+    color: #ffb693;
+    border-radius: 999px;
+    padding: 3mm 8mm;
+    font-size: 9.5pt;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 20mm;
+  }
+  .cover .meta {
+    font-size: 9pt;
+    color: #999;
+    line-height: 1.8;
+  }
+  h1 {
+    font-size: 18pt;
+    color: #b34700;
+    border-bottom: 2.5pt solid #ff6b00;
+    padding-bottom: 3mm;
+    margin-top: 14mm;
+    margin-bottom: 6mm;
+    page-break-after: avoid;
+  }
+  h1 .num { color: #ff6b00; margin-right: 3mm; }
+  h2 {
+    font-size: 13pt;
+    color: #7a3000;
+    margin-top: 8mm;
+    margin-bottom: 3mm;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #333;
+    margin-top: 5mm;
+    margin-bottom: 2mm;
+    page-break-after: avoid;
+  }
+  p { margin: 2.5mm 0; text-align: justify; }
+  ul, ol { margin: 2mm 0 3mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1.5mm; }
+  strong { color: #7a3000; }
+  code {
+    background: #f2f2f2;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 0.5pt 2pt;
+    font-family: Consolas, monospace;
+    font-size: 9.3pt;
+    color: #a04100;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 3mm 0 5mm 0;
+    font-size: 9.5pt;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 2.2mm 3mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #fdeee0;
+    color: #7a3000;
+    font-weight: 600;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .callout {
+    border-left: 3pt solid #ff6b00;
+    background: #fff6ee;
+    padding: 3mm 4mm;
+    margin: 4mm 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout.warn {
+    border-left-color: #cc0000;
+    background: #fff0ee;
+  }
+  .callout.good {
+    border-left-color: #0a8f5c;
+    background: #eefaf3;
+  }
+  .callout-title {
+    font-weight: 700;
+    font-size: 9.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1.5mm;
+    display: block;
+  }
+  .callout.warn .callout-title { color: #cc0000; }
+  .callout.good .callout-title { color: #0a8f5c; }
+  .callout .callout-title { color: #b34700; }
+  .grid2 {
+    display: flex;
+    gap: 5mm;
+    margin: 3mm 0 5mm 0;
+  }
+  .grid2 > div {
+    flex: 1;
+    border: 1px solid #e2e2e2;
+    border-radius: 6px;
+    padding: 3.5mm 4mm;
+  }
+  .grid2 .num {
+    font-size: 20pt;
+    font-weight: 800;
+    color: #ff6b00;
+    display: block;
+  }
+  .grid2 .lbl {
+    font-size: 8.8pt;
+    color: #666;
+  }
+  .kpi-row {
+    display: flex;
+    gap: 4mm;
+    margin: 3mm 0 5mm 0;
+  }
+  .kpi {
+    flex: 1;
+    text-align: center;
+    border: 1px solid #e2e2e2;
+    border-radius: 6px;
+    padding: 3mm 2mm;
+  }
+  .kpi .v { font-size: 16pt; font-weight: 800; color: #b34700; display: block; }
+  .kpi .l { font-size: 8pt; color: #666; }
+  .toc {
+    page-break-after: always;
+  }
+  .toc ol {
+    list-style: none;
+    padding-left: 0;
+    font-size: 11pt;
+    line-height: 2.2;
+  }
+  .toc ol > li > b { color: #b34700; }
+  .toc ol ol { font-size: 9.5pt; padding-left: 6mm; line-height: 1.8; color: #444; }
+  .section { page-break-before: always; }
+  .no-break { page-break-inside: avoid; }
+  .small { font-size: 8.8pt; color: #666; }
+  .badge {
+    display: inline-block;
+    background: #fdeee0;
+    color: #b34700;
+    border-radius: 3px;
+    padding: 0.5pt 4pt;
+    font-size: 8.3pt;
+    font-weight: 600;
+  }
+  .footer-note {
+    margin-top: 10mm;
+    padding-top: 3mm;
+    border-top: 1px solid #ddd;
+    font-size: 8.5pt;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+
+<!-- =============================== CAPA =============================== -->
+<div class="cover">
+  <div class="tag">Documento técnico e funcional</div>
+  <div class="logo">ApostAI</div>
+  <div class="subtitle">Como o sistema funciona, o que já foi construído<br/>e onde um especialista em tráfego pago pode ajudar</div>
+  <div class="meta">
+    Análise de futebol com modelo estatístico próprio<br/>
+    Mercado: Brasil · Pagamento via InfinitePay (Pix/cartão)<br/>
+    apostai.live
+  </div>
+</div>
+
+<!-- =============================== SUMÁRIO =============================== -->
+<div class="toc">
+<h1><span class="num">Sumário</span></h1>
+<ol>
+  <li><b>1. O que é o ApostAI</b></li>
+  <li><b>2. Como o produto funciona, do zero</b></li>
+  <li><b>3. O motor de análise (o que sustenta a promessa)</b></li>
+  <li><b>4. Modelo de acesso e pagamento</b></li>
+  <li><b>5. A oferta gratuita</b></li>
+  <li><b>6. O funil hoje: onde o visitante entra e onde ele desiste</b></li>
+  <li><b>7. O que já está medido (painel interno)</b></li>
+  <li><b>8. O problema atual: tráfego pago não converte</b></li>
+  <li><b>9. Onde um profissional de tráfego pode ajudar</b></li>
+  <li><b>10. Perguntas para alinhar com esse profissional</b></li>
+  <li><b>11. Glossário rápido</b></li>
+</ol>
+</div>
+
+<!-- =============================== 1 =============================== -->
+<h1><span class="num">1.</span>O que é o ApostAI</h1>
+
+<p>O ApostAI é um aplicativo web (funciona no navegador do celular, sem precisar instalar nada) que analisa
+partidas de futebol antes do jogo e devolve, em português simples, três sugestões de aposta — uma mais
+segura, uma equilibrada e uma mais arriscada — cada uma com a chance estimada em porcentagem e o motivo
+por trás da escolha.</p>
+
+<p>O ponto central do produto, e o que o diferencia de "sites de palpite": a conta que estima a probabilidade
+de cada resultado é <strong>feita pela própria equipe</strong>, não comprada de terceiros nem copiada de
+casa de apostas. E essa conta foi testada contra <strong>187 jogos que já aconteceram</strong> antes de ir
+ao ar, comparando o que o sistema previu com o que realmente ocorreu. Isso é raro no mercado — a maioria
+dos concorrentes não publica se o que promete realmente acontece.</p>
+
+<div class="callout good">
+<span class="callout-title">Em uma frase</span>
+O ApostAI não é uma casa de apostas. É uma ferramenta de análise: calcula chances reais e explica o
+porquê, para a pessoa decidir com mais informação — nunca garante lucro.
+</div>
+
+<!-- =============================== 2 =============================== -->
+<h1><span class="num">2.</span>Como o produto funciona, do zero</h1>
+
+<h2>2.1 A jornada de quem visita o site</h2>
+<ol>
+  <li>A pessoa chega na página inicial (<code>apostai.live</code>) ou numa página feita para anúncio
+      (<code>apostai.live/start</code>).</li>
+  <li>Vê a seção <strong>"Análise grátis"</strong>: três jogos do dia, sempre abertos, sem
+      cadastro nenhum.</li>
+  <li>Toca em um jogo e lê a análise completa — resumo escrito, as três sugestões com porcentagem,
+      e estatísticas das duas equipes.</li>
+  <li>Se quiser analisar <strong>qualquer outro jogo</strong> (não só os três grátis), precisa
+      assinar por R$ 15,00, válido por 30 dias.</li>
+  <li>O pagamento é feito pela InfinitePay (Pix ou cartão). Aprovado o pagamento, aparece na tela
+      um <strong>código de acesso</strong> de 12 caracteres.</li>
+  <li>Esse código é a única "senha" do sistema. A pessoa digita ele na tela de entrada sempre que
+      quiser voltar a usar o app, em qualquer aparelho.</li>
+</ol>
+
+<div class="callout">
+<span class="callout-title">Por que não tem cadastro com email e senha?</span>
+Decisão deliberada: cada campo de formulário antes do pagamento afasta uma parte de quem estava
+disposto a comprar. O código substitui conta, login e recuperação de senha por uma única string que a
+pessoa recebe na hora — reduz atrito e reduz também a superfície de coisas que podem dar errado
+(senha esquecida, email errado, etc).
+</div>
+
+<h2>2.2 Onde o dinheiro entra</h2>
+<p>Único ponto de cobrança: a assinatura de 30 dias. Não existe anúncio dentro do produto, não existe
+comissão de casa de apostas, não existe venda de dados. A receita é 100% assinatura.</p>
+
+<!-- =============================== 3 =============================== -->
+<h1><span class="num">3.</span>O motor de análise (o que sustenta a promessa)</h1>
+
+<p>Esta é a parte que mais diferencia o produto de um "site de chute". Para cada jogo, o sistema:</p>
+
+<ol>
+  <li><strong>Coleta dados reais</strong>: estatísticas da temporada de cada time, últimos 10 jogos de
+      cada um (casa e fora), últimos confrontos diretos entre as duas equipes, posição na tabela,
+      desfalques por lesão/suspensão e quantos dias de descanso cada time teve.</li>
+  <li><strong>Calcula a força de ataque e defesa</strong> de cada time a partir desses números — um
+      modelo estatístico chamado Poisson bivariado com correção de Dixon-Coles (a mesma família de
+      modelo usada por casas de apostas profissionais e departamentos de estatística esportiva).</li>
+  <li><strong>Ajusta pelo contexto</strong>: um time em alta recebe um pequeno bônus, um time badalado
+      de lesões recebe um pequeno desconto, histórico de confronto direto pesa um pouco na conta.</li>
+  <li><strong>Gera a probabilidade de ~27 tipos de aposta</strong> (quem ganha, total de gols, ambas
+      marcam, escanteios, etc) de forma matematicamente consistente entre si.</li>
+  <li><strong>Aplica uma calibração</strong>: depois de testar o modelo contra jogos já encerrados, alguns
+      tipos de aposta se mostraram um pouco otimistas ou pessimistas demais — esse ajuste corrige isso.</li>
+  <li><strong>Só então a Inteligência Artificial entra</strong>: ela recebe as probabilidades já calculadas
+      e escolhe 3 (baixo, médio, alto risco), escrevendo a explicação em português natural. A IA
+      <strong>não pode inventar nem alterar nenhum número</strong> — se ela tentar sugerir uma
+      probabilidade diferente da calculada, o sistema rejeita.</li>
+</ol>
+
+<div class="callout good">
+<span class="callout-title">O motor foi testado antes de virar produto</span>
+Antes de cobrar de qualquer pessoa, a equipe rodou esse modelo contra <strong>187 jogos já
+encerrados</strong> em 11 campeonatos, gerando 403 sugestões, e comparou "o que a gente disse antes do
+jogo" com "o que realmente aconteceu". O resultado está registrado internamente
+(<code>backtest-results/RESUMO-FINAL.md</code>) e é isso que sustenta os números abaixo.
+</div>
+
+<h2>3.1 Resultado desse teste, por nível de risco</h2>
+<table>
+<tr><th>Nível de risco</th><th>Sugestões testadas</th><th>Prometido</th><th>Realmente aconteceu</th><th>Diferença</th></tr>
+<tr><td><strong>Baixo</strong> (apostas mais seguras)</td><td>77</td><td>71,8%</td><td><strong>74,0%</strong></td><td>+2,2 pontos</td></tr>
+<tr><td><strong>Médio</strong> (equilibrado)</td><td>147</td><td>48,3%</td><td><strong>45,6%</strong></td><td>−2,7 pontos</td></tr>
+<tr><td><strong>Alto</strong> (mais arriscado)</td><td>179</td><td>24,5%</td><td><strong>23,5%</strong></td><td>−1,1 pontos</td></tr>
+</table>
+<p class="small">Nenhum dos três níveis desviou mais de 3 pontos percentuais do que foi prometido — isso é
+o que, tecnicamente, se chama de "modelo bem calibrado": quando o sistema diz 72% de chance, algo perto de
+72% das vezes realmente acontece.</p>
+
+<h2>3.2 Onde o modelo funciona melhor</h2>
+<p>Em ligas com um time claramente favorito (Ligue 1, Premier League, La Liga, Liga Portugal, Serie A), as
+apostas de baixo risco acertaram entre <strong>71% e 91%</strong> das vezes. Já em ligas mais equilibradas
+e imprevisíveis (Bundesliga, Eredivisie), o acerto geral fica perto de 35% — e nesse caso o sistema
+prefere <strong>não sugerir</strong> uma aposta "segura" em vez de forçar uma indicação fraca.</p>
+
+<div class="callout warn">
+<span class="callout-title">Importante para qualquer campanha de marketing</span>
+O sistema nunca deve anunciar "acerto garantido" ou um número de acerto acima do que foi medido de fato.
+A alegação correta e defensável é: <strong>"baixo risco acerta 74% em 403 casos testados"</strong> — não
+"acima de 90% de acerto" como número geral. Isso importa tanto por honestidade quanto porque Meta e Google
+suspendem contas de anúncio que prometem retorno garantido em produtos ligados a apostas.
+</div>
+
+<!-- =============================== 4 =============================== -->
+<h1><span class="num">4.</span>Modelo de acesso e pagamento</h1>
+
+<div class="kpi-row">
+  <div class="kpi"><span class="v">R$ 15,00</span><span class="l">preço padrão · 30 dias</span></div>
+  <div class="kpi"><span class="v">12</span><span class="l">caracteres no código de acesso</span></div>
+  <div class="kpi"><span class="v">0</span><span class="l">cadastros, senhas ou emails</span></div>
+</div>
+
+<h2>4.1 O código de acesso</h2>
+<p>É a única credencial do sistema. Gerado automaticamente após um pagamento aprovado, ou manualmente
+pelo administrador (cortesias, testes, parcerias). Pode ser de três tipos:</p>
+<table>
+<tr><th>Tipo</th><th>Duração</th><th>Origem</th></tr>
+<tr><td>Mensal</td><td>30 dias</td><td>Compra normal pelo site</td></tr>
+<tr><td>Anual</td><td>365 dias</td><td>Criado manualmente pelo administrador</td></tr>
+<tr><td>Vitalício</td><td>Não expira</td><td>Criado manualmente pelo administrador</td></tr>
+</table>
+<p class="small">O código pode ser revogado a qualquer momento pelo administrador (cancelamento,
+estorno, fraude) sem apagar o histórico de quem o usou.</p>
+
+<h2>4.2 Fluxo de pagamento</h2>
+<ol>
+  <li>Pessoa toca em "Assinar" → sistema gera um link de pagamento pela InfinitePay.</li>
+  <li>Pessoa paga (Pix ou cartão) na página da própria InfinitePay.</li>
+  <li>InfinitePay avisa o sistema (webhook) que o pagamento foi aprovado.</li>
+  <li>Sistema confere o pagamento diretamente com a InfinitePay antes de liberar qualquer coisa
+      (proteção contra fraude) e gera o código de 30 dias.</li>
+  <li>Pessoa vê o código na tela, com aviso para salvar — não existe recuperação por email.</li>
+</ol>
+
+<div class="callout">
+<span class="callout-title">Promoção configurável</span>
+Existe um interruptor no painel administrativo para ativar uma promoção de primeiro mês com desconto
+(ex.: R$ 10,00 em vez de R$ 15,00). Quando ativa, aparece um aviso na tela de quem está lendo uma análise
+grátis, oferecendo a assinatura com desconto por tempo limitado. O preço mostrado no aviso é sempre o
+mesmo preço realmente cobrado — não existe risco de anunciar um valor e cobrar outro.
+</div>
+
+<!-- =============================== 5 =============================== -->
+<h1><span class="num">5.</span>A oferta gratuita</h1>
+
+<p>Todo dia, o sistema escolhe automaticamente <strong>3 jogos</strong> para ficarem 100% grátis, sem
+login, sem limite de vezes que podem ser vistos. A escolha:</p>
+<ul>
+  <li>Prioriza Brasileirão, Copa do Brasil, Libertadores e Sul-Americana antes das ligas europeias;</li>
+  <li>Espalha os horários no dia — dois jogos de tarde e um de noite — para sempre ter algo relevante
+      quando a pessoa abrir o app, de manhã ou à noite;</li>
+  <li>Mantém o jogo na lista mesmo depois de encerrado, mostrando o placar final e o selo
+      "Encerrado" — a análise de um jogo que já acabou é, na prática, a prova mais simples de que o
+      modelo funciona: qualquer visitante pode comparar a previsão com o resultado real.</li>
+</ul>
+
+<div class="callout good">
+<span class="callout-title">Por que isso importa para tráfego pago</span>
+Um anúncio pode levar direto para um jogo grátis específico. A pessoa vê a análise completa sem
+precisar pagar nada primeiro — o que é uma prova concreta do produto, não uma promessa.
+</div>
+
+<!-- =============================== 6 =============================== -->
+<h1><span class="num">6.</span>O funil hoje: onde o visitante entra e onde ele desiste</h1>
+
+<p>O caminho de conversão, do primeiro clique até virar assinante, tem estas etapas:</p>
+
+<table>
+<tr><th>Etapa</th><th>O que acontece</th><th>Onde a pessoa pode desistir</th></tr>
+<tr><td>1. Clique no anúncio</td><td>Chega em <code>/start</code> ou na home</td><td>Página não convence, carrega devagar, ou tráfego é de baixa qualidade</td></tr>
+<tr><td>2. Vê os jogos grátis</td><td>Lê 1+ análise sem pagar nada</td><td>Não entende o valor do produto, ou os jogos grátis não interessam a ela</td></tr>
+<tr><td>3. Quer outro jogo</td><td>Bate no aviso de assinatura</td><td>Preço, falta de confiança, ou simplesmente não tinha intenção de pagar</td></tr>
+<tr><td>4. Clica em assinar</td><td>Vai para o checkout da InfinitePay</td><td>Fricção no checkout externo, desconfiança do domínio, forma de pagamento</td></tr>
+<tr><td>5. Paga</td><td>Recebe o código na tela</td><td>Falha de configuração técnica (já ocorreu 1 vez — ver seção 8)</td></tr>
+<tr><td>6. Usa o código</td><td>Entra e usa o app</td><td>Esquece o código, digita errado</td></tr>
+</table>
+
+<h2>6.1 Duas landing pages diferentes</h2>
+<div class="grid2">
+  <div>
+    <span class="num" style="font-size:12pt;">Home (apostai.live)</span>
+    <p class="small">Página do produto em si. Feita para quem já conhece ou chegou por busca orgânica.
+    Tem navegação completa (histórico, perfil).</p>
+  </div>
+  <div>
+    <span class="num" style="font-size:12pt;">/start</span>
+    <p class="small">Página feita especificamente para receber tráfego de anúncio. Sem menu de navegação,
+    um único caminho: ver os grátis → se interessar → assinar. Traz a tabela de "prometido vs. real" e
+    depoimento de calibração para gerar confiança rápido.</p>
+  </div>
+</div>
+
+<!-- =============================== 7 =============================== -->
+<h1><span class="num">7.</span>O que já está medido (painel interno)</h1>
+
+<p>Existe um painel administrativo (acesso restrito ao dono do sistema) que já registra, em tempo real,
+todo evento relevante do funil:</p>
+
+<table>
+<tr><th>Categoria</th><th>Eventos registrados</th></tr>
+<tr><td><strong>Pagamento</strong></td><td>Clique no botão de pagar, link de pagamento gerado, falha ao gerar link, pagamento confirmado, pagamento não confirmado, pagamento a menor</td></tr>
+<tr><td><strong>Análises</strong></td><td>Análise vista (grátis ou paga), análise calculada de fato (custo real de API/IA), tela de assinatura exibida</td></tr>
+<tr><td><strong>Acesso</strong></td><td>Login com sucesso, código recusado, saída</td></tr>
+<tr><td><strong>Códigos</strong></td><td>Código criado, código revogado</td></tr>
+</table>
+
+<p>O painel mostra ainda: receita total e por período, funil de conversão com taxa de clique→pagamento,
+jogos mais vistos com nome dos times, gráfico dos últimos 14 dias, lista de todos os códigos emitidos
+(ativo/expirado/revogado) e uma tela de eventos <strong>em tempo real</strong> (atualiza a cada 5 segundos)
+— é a ferramenta certa para acompanhar o comportamento em uma campanha ao vivo.</p>
+
+<div class="callout">
+<span class="callout-title">O que isso significa para o profissional de tráfego</span>
+Não será necessário instalar nada do zero para medir conversão — o sistema já sabe distinguir clique,
+intenção de pagar e pagamento confirmado. O que falta é conectar esses eventos às ferramentas de anúncio
+(ver seção 9).
+</div>
+
+<!-- =============================== 8 =============================== -->
+<h1><span class="num">8.</span>O problema atual: tráfego pago não converte</h1>
+
+<p>O time já identificou e corrigiu alguns problemas técnicos que prejudicavam a conversão:</p>
+
+<div class="grid2">
+  <div>
+    <span class="num" style="font-size:14pt; color:#cc0000;">01</span>
+    <p class="small"><strong>Visualizações falsas.</strong> Um recurso de pré-carregamento do navegador
+    fazia o sistema contar visitas em jogos que ninguém realmente abriu — inflando os números artificialmente.
+    Já corrigido.</p>
+  </div>
+  <div>
+    <span class="num" style="font-size:14pt; color:#cc0000;">02</span>
+    <p class="small"><strong>Pagamento perdido.</strong> Uma configuração incorreta do endereço do site
+    fez um cliente pagar e não receber o código, porque a InfinitePay tentou avisar um endereço que não
+    existia. Corrigido, e agora existe uma trava de segurança para isso nunca mais passar despercebido.</p>
+  </div>
+</div>
+
+<p>Com a parte técnica destravada, o problema que resta é o de <strong>tráfego e conversão</strong> — área
+fora do campo de um desenvolvedor e dentro do campo de um profissional de marketing de performance.</p>
+
+<div class="callout warn">
+<span class="callout-title">O que ainda não se sabe, e precisa de alguém de fora para responder</span>
+<ul style="margin-top:1mm;">
+  <li>O anúncio está atraindo o público errado (ex.: pessoas que não têm interesse real em apostas)?</li>
+  <li>A oferta (3 jogos grátis + R$ 15/mês) está clara no próprio anúncio antes do clique?</li>
+  <li>O criativo (imagem, texto, vídeo) está comunicando o diferencial real — modelo próprio testado — ou
+      parece "mais um site de palpite"?</li>
+  <li>A plataforma de anúncio (Meta, Google, TikTok) está sinalizando algum problema de política por o
+      produto estar próximo do tema apostas?</li>
+  <li>O custo por clique está compatível com o valor da assinatura (R$ 15) e a margem restante?</li>
+</ul>
+</div>
+
+<!-- =============================== 9 =============================== -->
+<h1><span class="num">9.</span>Onde um profissional de tráfego pode ajudar</h1>
+
+<h2>9.1 Diagnóstico do funil pago</h2>
+<ul>
+  <li>Revisar se as campanhas estão configuradas para objetivo de conversão (e não apenas cliques/alcance).</li>
+  <li>Auditar públicos, posicionamentos e criativos usados até agora.</li>
+  <li>Verificar se a plataforma de anúncio está restringindo entrega por classificar o produto como
+      relacionado a apostas — isso muda completamente a estratégia possível.</li>
+</ul>
+
+<h2>9.2 Rastreamento de conversão (o que falta plugar)</h2>
+<p>O sistema já registra os eventos certos internamente (seção 7), mas eles não estão conectados ainda
+às ferramentas de anúncio. Um especialista normalmente conecta:</p>
+<ul>
+  <li><strong>Meta Pixel / Conversions API</strong> — disparar evento de "Lead" no clique de assinar e
+      "Purchase" no pagamento confirmado, com o valor real (R$ 15 ou R$ 10 na promoção).</li>
+  <li><strong>Google Ads (tag de conversão)</strong> — mesma lógica, para campanhas de Search/Performance
+      Max.</li>
+  <li><strong>UTM consistente</strong> nas campanhas, para o painel interno (seção 7) já conseguir separar
+      qual canal/anúncio trouxe qual venda.</li>
+</ul>
+
+<h2>9.3 Otimização de criativo e oferta</h2>
+<ul>
+  <li>Testar variações de anúncio que enfatizem os números reais de calibração (seção 3.1) em vez de
+      promessa genérica — é um diferencial verdadeiro e pouco usado no nicho.</li>
+  <li>Testar se levar direto para um jogo grátis específico (em vez da <code>/start</code> genérica)
+      converte melhor.</li>
+  <li>Decidir o momento certo de mostrar a promoção do primeiro mês (seção 4.2) dentro da campanha.</li>
+</ul>
+
+<h2>9.4 Compliance de anúncio</h2>
+<p>Produtos próximos ao tema apostas exigem cuidado extra nas plataformas de anúncio: aviso de "18+",
+proibição de prometer retorno garantido, e em alguns casos exigência de licença de operação de apostas
+(mesmo o ApostAI não sendo uma casa de apostas). Um profissional com experiência nesse nicho evita que a
+conta de anúncio seja suspensa — o que já é uma prática de risco conhecida na área.</p>
+
+<!-- =============================== 10 =============================== -->
+<h1><span class="num">10.</span>Perguntas para alinhar com esse profissional</h1>
+<ol>
+  <li>Você já trabalhou com produtos próximos ao tema apostas/loterias? Como lidou com as restrições de
+      política do Meta e do Google nesse nicho?</li>
+  <li>Que ferramenta de rastreamento de conversão você prefere usar, e o que precisa ser configurado do
+      nosso lado (pixel, API de conversões, eventos)?</li>
+  <li>Qual seria a primeira campanha de teste — orçamento, público, duração — antes de investir mais?</li>
+  <li>Como você mediria sucesso nas primeiras duas semanas (custo por assinatura, não só cliques)?</li>
+  <li>Você recomenda mudar a oferta (preço, promoção, garantia) antes de escalar o investimento em
+      anúncio?</li>
+</ol>
+
+<!-- =============================== 11 =============================== -->
+<h1><span class="num">11.</span>Glossário rápido</h1>
+<table>
+<tr><th>Termo</th><th>O que significa aqui</th></tr>
+<tr><td>Código de acesso</td><td>String de 12 caracteres que substitui login/senha. Único jeito de entrar no app.</td></tr>
+<tr><td>Baixo / médio / alto risco</td><td>As três sugestões de aposta mostradas por análise, da mais provável para a menos provável de acontecer.</td></tr>
+<tr><td>Calibração</td><td>Processo de verificar se a porcentagem que o sistema mostra bate com a frequência real de acerto.</td></tr>
+<tr><td>Funil</td><td>Sequência de passos que uma pessoa percorre desde o clique no anúncio até se tornar assinante.</td></tr>
+<tr><td>Webhook</td><td>Aviso automático que a InfinitePay envia ao sistema quando um pagamento é aprovado.</td></tr>
+<tr><td>Pixel / API de conversão</td><td>Mecanismo técnico que informa ao Meta/Google que um clique de anúncio resultou em venda.</td></tr>
+</table>
+
+<div class="footer-note">
+Documento gerado para uso interno e para compartilhamento com profissionais de tráfego pago.
+Reflete o estado do sistema no momento da geração. Números de calibração vêm do teste interno
+registrado em <code>backtest-results/RESUMO-FINAL.md</code> (maio de 2026, 187 jogos, 403 sugestões,
+11 campeonatos).
+</div>
+
+</body>
+</html>

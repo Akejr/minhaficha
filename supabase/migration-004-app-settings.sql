@@ -23,6 +23,6 @@ alter table public.app_settings enable row level security;
 insert into public.app_settings (key, value)
 values (
   'promo_first_month',
-  jsonb_build_object('enabled', false, 'priceCents', 1000)
+  jsonb_build_object('enabled', true, 'priceCents', 1500)
 )
 on conflict (key) do nothing;

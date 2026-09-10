@@ -17,16 +17,23 @@ import { mapAnalysisToMatchAnalysis } from "@/lib/match-mapper";
 import { getCurrentAccess } from "@/lib/access/session";
 import { isFreeFixture } from "@/lib/free-fixtures";
 import { isPrefetchRequest, logEvent } from "@/lib/analytics/events";
-import { getPromo } from "@/lib/settings";
-import { PLAN, PLAN_PRICE_CENTS } from "@/lib/plans";
+import { priceView, type PriceView } from "@/lib/settings";
+import { PLAN, formatCents } from "@/lib/plans";
+import { PriceTag } from "@/components/subscription/PriceTag";
 
 type PageProps = {
   params: { id: string };
 };
 
-type LoadResult =
-  | { kind: "ok"; analysis: MatchAnalysis; isFree: boolean }
-  | { kind: "locked" };
+type LoadResult = {
+  analysis: MatchAnalysis;
+  /** Free fixture opened without a code. */
+  isFree: boolean;
+  /** Holds a valid access code. */
+  hasCode: boolean;
+  /** Paid fixture opened without a code → bets are blurred. */
+  locked: boolean;
+};
 
 /**
  * Access rules for a fixture:
@@ -40,7 +47,12 @@ type LoadResult =
  */
 async function loadAnalysis(id: string): Promise<LoadResult | null> {
   if (id in mockAnalyses) {
-    return { kind: "ok", analysis: mockAnalyses[id], isFree: true };
+    return {
+      analysis: mockAnalyses[id],
+      isFree: true,
+      hasCode: false,
+      locked: false,
+    };
   }
   const fixtureId = Number(id);
   if (!Number.isFinite(fixtureId) || fixtureId <= 0) return null;
@@ -55,13 +67,13 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
   // counts as opening the analysis.
   const prefetch = isPrefetchRequest();
 
-  if (!access && !free) {
-    if (!prefetch) await logEvent({ type: "analysis_blocked", fixtureId });
-    return { kind: "locked" };
-  }
-
   try {
     const result = await getOrCreateAnalysis(fixtureId);
+
+    // A visitor with no code, on a paid fixture, is the "locked" case: we
+    // still show the full match analysis (summary + stats) but blur the bets,
+    // rather than a hard wall — that teaser converts far better.
+    const locked = !access && !free;
 
     if (!prefetch) {
       // History only exists for code holders.
@@ -72,7 +84,7 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
         result.ai,
       );
       await logEvent({
-        type: "analysis_view",
+        type: locked ? "analysis_blocked" : "analysis_view",
         fixtureId,
         code: access?.code ?? null,
         isFree: !access,
@@ -80,10 +92,13 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
       });
     }
     return {
-      kind: "ok",
       analysis: mapAnalysisToMatchAnalysis(result.payload, result.ai),
-      // Free fixtures show every risk level, same as a paid code.
+      // isFree  = free fixture opened without a code → everything visible.
+      // hasCode = paid access → everything visible.
+      // neither = paid fixture without a code → bets blurred (locked below).
       isFree: free && !access,
+      hasCode: !!access,
+      locked,
     };
   } catch (err) {
     console.error(`[match/${id}] analysis failed:`, err);
@@ -92,9 +107,9 @@ async function loadAnalysis(id: string): Promise<LoadResult | null> {
 }
 
 export default async function MatchAnalysisPage({ params }: PageProps) {
-  const [result, promo] = await Promise.all([
+  const [result, price] = await Promise.all([
     loadAnalysis(params.id),
-    getPromo(),
+    priceView(),
   ]);
   if (!result) notFound();
 
@@ -106,33 +121,34 @@ export default async function MatchAnalysisPage({ params }: PageProps) {
       <TopAppBar />
 
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in">
-        {result.kind === "locked" ? (
-          <PaywallCard />
-        ) : (
-          <div className="flex flex-col gap-6">
-            <MatchHeader analysis={result.analysis} />
-            {result.isFree && <FreeBadge />}
-            <AISummary
-              summary={result.analysis.aiSummary}
-              confidence={result.analysis.confidence}
+        <div className="flex flex-col gap-6">
+          <MatchHeader analysis={result.analysis} />
+          {result.isFree && <FreeBadge />}
+          {result.locked && <LockedBadge />}
+          <AISummary
+            summary={result.analysis.aiSummary}
+            confidence={result.analysis.confidence}
+          />
+          {/* Blur the picks ONLY for a paid fixture opened without a code.
+              Free fixtures are the shop window and show everything; code
+              holders see everything. */}
+          <BetsSection bets={result.analysis.bets} locked={result.locked} />
+          <MatchStats
+            stats={result.analysis.stats}
+            homeTeam={result.analysis.homeTeam}
+            awayTeam={result.analysis.awayTeam}
+          />
+          {/* Sell to anyone without a code — both the free reader and the one
+              who hit a locked paid fixture. */}
+          {!result.hasCode && <UpsellCard price={price} />}
+          {/* Nudge modal for logged-out visitors, while a promo is on. */}
+          {!result.hasCode && price.isPromo && (
+            <FreeAnalysisPromo
+              priceCents={price.activeCents}
+              regularCents={price.regularCents}
             />
-            <BetsSection bets={result.analysis.bets} />
-            <MatchStats
-              stats={result.analysis.stats}
-              homeTeam={result.analysis.homeTeam}
-              awayTeam={result.analysis.awayTeam}
-            />
-            {result.isFree && <UpsellCard />}
-            {/* Promo only for free readers with no code, and only while the
-                owner has it switched on in /admin. */}
-            {result.isFree && promo.enabled && (
-              <FreeAnalysisPromo
-                priceCents={promo.priceCents}
-                regularCents={PLAN_PRICE_CENTS}
-              />
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </main>
 
       <BottomNavBar />
@@ -153,95 +169,53 @@ function FreeBadge() {
   );
 }
 
-function UpsellCard() {
+/** Shown at the top when a paid fixture is opened without a code. */
+function LockedBadge() {
   return (
-    <section className="glass-card rounded-2xl p-5 text-center">
-      <h3 className="font-headline-md text-[16px] text-on-surface mb-1">
-        Quer analisar qualquer jogo?
-      </h3>
-      <p className="font-body-md text-[13px] text-on-surface-variant mb-4">
-        Por {PLAN.priceLabel} {PLAN.cycleLabel} você libera todos os jogos e
-        recebe um código de acesso na hora.
+    <div className="flex items-center gap-2 rounded-xl border border-primary-container/40 bg-primary-container/10 px-4 py-2.5">
+      <span className="material-symbols-outlined text-primary-container text-[18px]">
+        lock
+      </span>
+      <p className="font-body-md text-[13px] text-on-surface">
+        Jogo de assinante. Veja a análise; os palpites são exclusivos —
+        assine para liberar.
       </p>
-      <SubscribeButton />
-    </section>
+    </div>
   );
 }
 
-/**
- * Shown when a visitor without a code opens a fixture that isn't free.
- * Two exits: buy, or enter an existing code.
- */
-function PaywallCard() {
+function UpsellCard({ price }: { price: PriceView }) {
   return (
-    <section className="flex flex-col items-center text-center pt-4">
-      <div className="relative mb-5">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-container/30 to-secondary-container/30 blur-3xl rounded-full" />
-        <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary-container to-secondary-container flex items-center justify-center shadow-[0_0_40px_rgba(255,107,0,0.4)]">
-          <span className="material-symbols-outlined text-white text-[36px]">
-            lock
-          </span>
-        </div>
-      </div>
-
-      <span className="font-label-md text-label-md uppercase tracking-[0.2em] text-primary-container mb-2">
-        Jogo bloqueado
-      </span>
-      <h2 className="font-display-lg text-[26px] leading-tight text-on-surface mb-2 tracking-tight">
-        Este jogo é
-        <br />
-        para assinantes
-      </h2>
-      <p className="font-body-md text-[14px] text-on-surface-variant mb-6 max-w-[300px]">
-        Os 3 jogos da seção &ldquo;Análise grátis&rdquo; na home são sempre
-        liberados. Para analisar qualquer outro jogo, assine.
+    <section className="glass-card rounded-2xl p-5 text-center">
+      <h3 className="font-headline-md text-[16px] text-on-surface mb-1">
+        Quer ver os palpites e analisar qualquer jogo?
+      </h3>
+      <p className="font-body-md text-[13px] text-on-surface-variant mb-4">
+        {price.isPromo ? (
+          <>
+            De {formatCents(price.regularCents)} por{" "}
+            <span className="text-on-surface font-semibold">
+              {formatCents(price.activeCents)}
+            </span>{" "}
+            {PLAN.cycleLabel} — promoção por tempo limitado. Libera todos os
+            jogos e você recebe o código na hora.
+          </>
+        ) : (
+          <>
+            Por {formatCents(price.activeCents)} {PLAN.cycleLabel} você libera
+            todos os jogos e recebe um código de acesso na hora.
+          </>
+        )}
       </p>
-
-      <div className="glass-card rounded-2xl p-5 w-full text-left mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="font-label-md text-label-md uppercase tracking-wider text-primary-container">
-            {PLAN.name}
-          </span>
-          <span className="font-label-md text-[10px] uppercase tracking-wider text-on-surface-variant">
-            30 dias
-          </span>
-        </div>
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="font-display-lg text-[36px] text-on-surface leading-none">
-            {PLAN.priceLabel}
-          </span>
-          <span className="font-headline-md text-[14px] text-on-surface-variant">
-            /mês
-          </span>
-        </div>
-        <ul className="flex flex-col gap-2 mb-1">
-          {PLAN.perks.map((p) => (
-            <li
-              key={p}
-              className="flex items-start gap-2 font-body-md text-[13px] text-on-surface-variant"
-            >
-              <span className="material-symbols-outlined text-emerald-300 text-[16px] mt-0.5">
-                check_circle
-              </span>
-              {p}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <SubscribeButton />
+      <SubscribeButton
+        label={`Assinar por ${formatCents(price.activeCents)}`}
+      />
 
       <Link
         href="/entrar"
-        className="mt-3 font-label-md text-label-md text-primary-container hover:opacity-80 transition-opacity"
+        className="mt-3 inline-block font-label-md text-label-md text-primary-container hover:opacity-80 transition-opacity"
       >
         Já tenho um código
-      </Link>
-      <Link
-        href="/"
-        className="mt-3 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
-      >
-        Ver os jogos grátis
       </Link>
     </section>
   );

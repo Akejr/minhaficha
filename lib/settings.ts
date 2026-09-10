@@ -16,7 +16,12 @@ export type PromoSettings = {
   priceCents: number;
 };
 
-const DEFAULT_PROMO: PromoSettings = { enabled: false, priceCents: 1000 };
+/**
+ * The intended marketing default: promo ON at R$ 15, against the R$ 50
+ * standard price. `getPromo` still falls back to this if the settings row is
+ * missing, so the discount is shown even before migration-004 runs.
+ */
+const DEFAULT_PROMO: PromoSettings = { enabled: true, priceCents: 1500 };
 
 function coerce(value: unknown): PromoSettings {
   if (!value || typeof value !== "object") return DEFAULT_PROMO;
@@ -63,6 +68,36 @@ export async function setPromo(next: PromoSettings): Promise<void> {
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Everything the UI needs to show a price consistently, in one place so the
+ * banner, the paywall, the modal and the actual charge can never disagree.
+ *
+ *   activeCents  → what the customer pays right now
+ *   regularCents → the standard price (only meaningful when isPromo)
+ *   isPromo      → whether a discount is active
+ */
+export type PriceView = {
+  activeCents: number;
+  regularCents: number;
+  isPromo: boolean;
+};
+
+export async function priceView(): Promise<PriceView> {
+  const promo = await getPromo();
+  if (promo.enabled && promo.priceCents < PLAN_PRICE_CENTS) {
+    return {
+      activeCents: promo.priceCents,
+      regularCents: PLAN_PRICE_CENTS,
+      isPromo: true,
+    };
+  }
+  return {
+    activeCents: PLAN_PRICE_CENTS,
+    regularCents: PLAN_PRICE_CENTS,
+    isPromo: false,
+  };
 }
 
 /**

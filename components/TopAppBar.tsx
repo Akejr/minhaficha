@@ -24,8 +24,12 @@ export async function TopAppBar() {
     <header
       className="fixed left-0 right-0 mx-auto max-w-[440px] z-50 bg-surface-container-lowest/60 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(255,107,0,0.15)] flex justify-between items-center px-6"
       style={{
-        top: 0,
-        paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)",
+        // Sits at 0, or just below the promo strip when it's present. When the
+        // promo shows, the strip already carries the safe-area inset, so the
+        // header only needs its own 16px padding.
+        top: "var(--promo-height)",
+        paddingTop:
+          "calc(var(--promo-header-inset, env(safe-area-inset-top, 0px)) + 16px)",
         paddingBottom: 16,
       }}
     >

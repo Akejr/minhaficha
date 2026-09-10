@@ -2,6 +2,7 @@ import { TopAppBar } from "@/components/TopAppBar";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { getCurrentAccess, isAdmin } from "@/lib/access/session";
+import { priceView } from "@/lib/settings";
 
 /**
  * Profile / subscription page.
@@ -10,7 +11,11 @@ import { getCurrentAccess, isAdmin } from "@/lib/access/session";
  * this IS the sales page, and the paywall links here.
  */
 export default async function ProfilePage() {
-  const [access, owner] = await Promise.all([getCurrentAccess(), isAdmin()]);
+  const [access, owner, price] = await Promise.all([
+    getCurrentAccess(),
+    isAdmin(),
+    priceView(),
+  ]);
 
   return (
     <>
@@ -22,6 +27,7 @@ export default async function ProfilePage() {
       <main className="main-shell px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern min-h-screen anim-page-in">
         <ProfileView
           isOwner={owner}
+          price={price}
           access={
             access
               ? {

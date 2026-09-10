@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { PromoBar, shouldShowPromoBar } from "@/components/PromoBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,11 +32,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Deciding here (once) whether the promo strip shows lets us both render it
+  // and add `has-promo` to <body>, which offsets the fixed header and every
+  // page's <main> by --promo-height.
+  const showPromo = await shouldShowPromoBar();
+
   return (
     <html lang="pt-BR" className="dark">
       <head>
@@ -48,7 +54,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#0a0a0a] text-on-background font-body-md min-h-screen relative overflow-x-hidden antialiased">
+      <body
+        className={`bg-[#0a0a0a] text-on-background font-body-md min-h-screen relative overflow-x-hidden antialiased${
+          showPromo ? " has-promo" : ""
+        }`}
+      >
+        <PromoBar />
         <div className="bg-background min-h-screen mx-auto w-full max-w-[440px] relative shadow-[0_0_80px_rgba(0,0,0,0.6)]">
           {children}
         </div>

@@ -69,7 +69,7 @@ export default function StartPage() {
 
       <LandingHeader />
 
-      <main className="px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in pb-24 pt-[calc(env(safe-area-inset-top,0px)+80px)]">
+      <main className="px-container-margin max-w-[440px] mx-auto relative z-10 bg-grid-pattern anim-page-in pb-24 pt-[calc(var(--promo-height)+env(safe-area-inset-top,0px)+80px)]">
         <Hero />
         <ProofBar />
         <FreeOffer />
@@ -92,8 +92,9 @@ function LandingHeader() {
     <header
       className="fixed left-0 right-0 mx-auto max-w-[440px] z-50 bg-surface-container-lowest/70 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-6"
       style={{
-        top: 0,
-        paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)",
+        top: "var(--promo-height)",
+        paddingTop:
+          "calc(var(--promo-header-inset, env(safe-area-inset-top, 0px)) + 16px)",
         paddingBottom: 16,
       }}
     >
